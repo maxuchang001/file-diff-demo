@@ -1,0 +1,206 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<spirit:component xmlns:spirit="http://www.spiritconsortium.org/XMLSchema/SPIRIT/1685-2014" xmlns:vendor="http://www.example.com/vendor">
+    <spirit:vendor>TestVendor</spirit:vendor>
+    <spirit:library>TestLibrary</spirit:library>
+    <spirit:name>TestComponent</spirit:name>
+    <spirit:version>2.0</spirit:version>
+    
+    <!-- Bus Definitions -->
+    <spirit:busDefinitions>
+        <spirit:busDefinition>
+            <spirit:name>axi4</spirit:name>
+            <spirit:version>2.0</spirit:version>
+            <spirit:directConnection>true</spirit:directConnection>
+            <spirit:isAddressable>true</spirit:isAddressable>
+        </spirit:busDefinition>
+        <spirit:busDefinition>
+            <spirit:name>ahb</spirit:name>
+            <spirit:version>1.0</spirit:version>
+            <spirit:directConnection>true</spirit:directConnection>
+            <spirit:isAddressable>true</spirit:isAddressable>
+        </spirit:busDefinition>
+    </spirit:busDefinitions>
+
+    <!-- Parameters: 修改DATA_WIDTH值，删除ADDR_WIDTH，新增FREQ参数 -->
+    <spirit:parameters>
+        <spirit:parameter>
+            <spirit:name>DATA_WIDTH</spirit:name>
+            <spirit:value>64</spirit:value>
+            <spirit:type>integer</spirit:type>
+        </spirit:parameter>
+        <spirit:parameter>
+            <spirit:name>FREQ</spirit:name>
+            <spirit:value>200</spirit:value>
+            <spirit:type>integer</spirit:type>
+        </spirit:parameter>
+    </spirit:parameters>
+
+    <!-- Bus Interfaces: 修改AXI4版本，删除APB，新增AHB -->
+    <spirit:busInterfaces>
+        <spirit:busInterface>
+            <spirit:name>AXI4</spirit:name>
+            <spirit:busType spirit:name="axi4" spirit:version="2.0"/>
+            <spirit:master>
+                <spirit:addressSpaceRef spirit:addressSpaceRef="mem_space"/>
+            </spirit:master>
+        </spirit:busInterface>
+        <spirit:busInterface>
+            <spirit:name>AHB</spirit:name>
+            <spirit:busType spirit:name="ahb" spirit:version="1.0"/>
+            <spirit:slave>
+                <spirit:memoryMapRef spirit:memoryMapRef="reg_map"/>
+            </spirit:slave>
+        </spirit:busInterface>
+    </spirit:busInterfaces>
+
+    <!-- Memory Maps: 修改地址范围，新增寄存器 -->
+    <spirit:memoryMaps>
+        <spirit:memoryMap>
+            <spirit:name>reg_map</spirit:name>
+            <spirit:addressBlock>
+                <spirit:name>CTRL</spirit:name>
+                <spirit:baseAddress>0x1000</spirit:baseAddress>
+                <spirit:range>0x2000</spirit:range>
+                <spirit:width>32</spirit:width>
+                <spirit:register>
+                    <spirit:name>CTRL</spirit:name>
+                    <spirit:addressOffset>0x0</spirit:addressOffset>
+                    <spirit:size>32</spirit:size>
+                    <spirit:access>read-write</spirit:access>
+                    <spirit:field>
+                        <spirit:name>ENABLE</spirit:name>
+                        <spirit:bitOffset>0</spirit:bitOffset>
+                        <spirit:bitWidth>2</spirit:bitWidth>
+                        <spirit:access>read-write</spirit:access>
+                    </spirit:field>
+                </spirit:register>
+                <spirit:register>
+                    <spirit:name>STATUS</spirit:name>
+                    <spirit:addressOffset>0x4</spirit:addressOffset>
+                    <spirit:size>32</spirit:size>
+                    <spirit:access>read-only</spirit:access>
+                    <spirit:field>
+                        <spirit:name>DONE</spirit:name>
+                        <spirit:bitOffset>0</spirit:bitOffset>
+                        <spirit:bitWidth>1</spirit:bitWidth>
+                        <spirit:access>read-only</spirit:access>
+                    </spirit:field>
+                </spirit:register>
+            </spirit:addressBlock>
+        </spirit:memoryMap>
+    </spirit:memoryMaps>
+
+    <!-- Address Spaces: 新增地址空间 -->
+    <spirit:addressSpaces>
+        <spirit:addressSpace>
+            <spirit:name>mem_space</spirit:name>
+            <spirit:range>0x2000000</spirit:range>
+            <spirit:width>64</spirit:width>
+        </spirit:addressSpace>
+    </spirit:addressSpaces>
+
+    <!-- File Sets: 修改文件名，新增文件 -->
+    <spirit:fileSets>
+        <spirit:fileSet>
+            <spirit:name>rtl</spirit:name>
+            <spirit:file>
+                <spirit:name>test_v2.v</spirit:name>
+                <spirit:fileType>verilogSource</spirit:fileType>
+            </spirit:file>
+            <spirit:file>
+                <spirit:name>test_tb.v</spirit:name>
+                <spirit:fileType>verilogSource</spirit:fileType>
+            </spirit:file>
+        </spirit:fileSet>
+    </spirit:fileSets>
+
+    <!-- Views: 修改环境标识符，新增视图 -->
+    <spirit:views>
+        <spirit:view>
+            <spirit:name>rtl</spirit:name>
+            <spirit:envIdentifier>verilog-2005</spirit:envIdentifier>
+            <spirit:fileSetRef>rtl</spirit:fileSetRef>
+        </spirit:view>
+        <spirit:view>
+            <spirit:name>tb</spirit:name>
+            <spirit:envIdentifier>verilog-2005</spirit:envIdentifier>
+            <spirit:fileSetRef>rtl</spirit:fileSetRef>
+        </spirit:view>
+    </spirit:views>
+
+    <!-- Ports: 修改端口方向，新增端口 -->
+    <spirit:ports>
+        <spirit:port>
+            <spirit:name>clk</spirit:name>
+            <spirit:direction>in</spirit:direction>
+        </spirit:port>
+        <spirit:port>
+            <spirit:name>rst_n</spirit:name>
+            <spirit:direction>in</spirit:direction>
+        </spirit:port>
+        <spirit:port>
+            <spirit:name>irq</spirit:name>
+            <spirit:direction>out</spirit:direction>
+        </spirit:port>
+    </spirit:ports>
+
+    <!-- Component Instances: 修改版本号，新增实例 -->
+    <spirit:componentInstances>
+        <spirit:componentInstance>
+            <spirit:name>instance1</spirit:name>
+            <spirit:componentRef spirit:name="comp1" spirit:version="2.0"/>
+        </spirit:componentInstance>
+        <spirit:componentInstance>
+            <spirit:name>instance3</spirit:name>
+            <spirit:componentRef spirit:name="comp3" spirit:version="1.0"/>
+        </spirit:componentInstance>
+    </spirit:componentInstances>
+
+    <!-- Ad-hoc Connections: 修改连接名，新增连接 -->
+    <spirit:adHocConnections>
+        <spirit:adHocConnection>
+            <spirit:name>conn1</spirit:name>
+            <spirit:internalPortReference spirit:componentRef="instance1" spirit:portRef="port1"/>
+            <spirit:internalPortReference spirit:componentRef="instance3" spirit:portRef="port2"/>
+        </spirit:adHocConnection>
+        <spirit:adHocConnection>
+            <spirit:name>conn2</spirit:name>
+            <spirit:internalPortReference spirit:componentRef="instance1" spirit:portRef="irq"/>
+            <spirit:internalPortReference spirit:componentRef="instance3" spirit:portRef="irq_in"/>
+        </spirit:adHocConnection>
+    </spirit:adHocConnections>
+
+    <!-- Choices: 修改值，新增选项 -->
+    <spirit:choices>
+        <spirit:choice>
+            <spirit:name>config</spirit:name>
+            <spirit:value>advanced</spirit:value>
+        </spirit:choice>
+        <spirit:choice>
+            <spirit:name>mode</spirit:name>
+            <spirit:value>high_performance</spirit:value>
+        </spirit:choice>
+    </spirit:choices>
+
+    <!-- Vendor Extensions: 修改扩展内容 -->
+    <spirit:vendorExtensions>
+        <vendor:custom>
+            <vendor:info>Updated Test Info</vendor:info>
+            <vendor:version>2.0</vendor:version>
+        </vendor:custom>
+    </spirit:vendorExtensions>
+
+    <!-- Design -->
+    <spirit:design>
+        <spirit:name>TestDesign</spirit:name>
+        <spirit:version>2.0</spirit:version>
+        <spirit:componentInstance>
+            <spirit:name>instance1</spirit:name>
+            <spirit:componentRef spirit:name="comp1" spirit:version="2.0"/>
+        </spirit:componentInstance>
+        <spirit:componentInstance>
+            <spirit:name>instance3</spirit:name>
+            <spirit:componentRef spirit:name="comp3" spirit:version="1.0"/>
+        </spirit:componentInstance>
+    </spirit:design>
+</spirit:component> 

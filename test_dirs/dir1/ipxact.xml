@@ -1,0 +1,171 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<spirit:component xmlns:spirit="http://www.spiritconsortium.org/XMLSchema/SPIRIT/1685-2014" xmlns:vendor="http://www.example.com/vendor">
+    <spirit:vendor>TestVendor</spirit:vendor>
+    <spirit:library>TestLibrary</spirit:library>
+    <spirit:name>TestComponent</spirit:name>
+    <spirit:version>1.0</spirit:version>
+
+    <!-- Bus Definitions -->
+    <spirit:busDefinitions>
+        <spirit:busDefinition>
+            <spirit:name>axi4</spirit:name>
+            <spirit:version>1.0</spirit:version>
+            <spirit:directConnection>true</spirit:directConnection>
+            <spirit:isAddressable>true</spirit:isAddressable>
+        </spirit:busDefinition>
+        <spirit:busDefinition>
+            <spirit:name>apb</spirit:name>
+            <spirit:version>1.0</spirit:version>
+            <spirit:directConnection>true</spirit:directConnection>
+            <spirit:isAddressable>true</spirit:isAddressable>
+        </spirit:busDefinition>
+    </spirit:busDefinitions>
+
+    <!-- Parameters -->
+    <spirit:parameters>
+        <spirit:parameter>
+            <spirit:name>DATA_WIDTH</spirit:name>
+            <spirit:value>32</spirit:value>
+            <spirit:type>integer</spirit:type>
+        </spirit:parameter>
+        <spirit:parameter>
+            <spirit:name>ADDR_WIDTH</spirit:name>
+            <spirit:value>16</spirit:value>
+            <spirit:type>integer</spirit:type>
+        </spirit:parameter>
+    </spirit:parameters>
+
+    <!-- Bus Interfaces -->
+    <spirit:busInterfaces>
+        <spirit:busInterface>
+            <spirit:name>AXI4</spirit:name>
+            <spirit:busType spirit:name="axi4" spirit:version="1.0"/>
+            <spirit:master>
+                <spirit:addressSpaceRef spirit:addressSpaceRef="mem_space"/>
+            </spirit:master>
+        </spirit:busInterface>
+        <spirit:busInterface>
+            <spirit:name>APB</spirit:name>
+            <spirit:busType spirit:name="apb" spirit:version="1.0"/>
+            <spirit:slave>
+                <spirit:memoryMapRef spirit:memoryMapRef="reg_map"/>
+            </spirit:slave>
+        </spirit:busInterface>
+    </spirit:busInterfaces>
+
+    <!-- Memory Maps -->
+    <spirit:memoryMaps>
+        <spirit:memoryMap>
+            <spirit:name>reg_map</spirit:name>
+            <spirit:addressBlock>
+                <spirit:name>CTRL</spirit:name>
+                <spirit:baseAddress>0x0</spirit:baseAddress>
+                <spirit:range>0x1000</spirit:range>
+                <spirit:width>32</spirit:width>
+                <spirit:register>
+                    <spirit:name>CTRL</spirit:name>
+                    <spirit:addressOffset>0x0</spirit:addressOffset>
+                    <spirit:size>32</spirit:size>
+                    <spirit:access>read-write</spirit:access>
+                    <spirit:field>
+                        <spirit:name>ENABLE</spirit:name>
+                        <spirit:bitOffset>0</spirit:bitOffset>
+                        <spirit:bitWidth>1</spirit:bitWidth>
+                        <spirit:access>read-write</spirit:access>
+                    </spirit:field>
+                </spirit:register>
+            </spirit:addressBlock>
+        </spirit:memoryMap>
+    </spirit:memoryMaps>
+
+    <!-- Address Spaces -->
+    <spirit:addressSpaces>
+        <spirit:addressSpace>
+            <spirit:name>mem_space</spirit:name>
+            <spirit:range>0x1000000</spirit:range>
+            <spirit:width>32</spirit:width>
+        </spirit:addressSpace>
+    </spirit:addressSpaces>
+
+    <!-- Component Instances -->
+    <spirit:componentInstances>
+        <spirit:componentInstance>
+            <spirit:name>instance1</spirit:name>
+            <spirit:componentRef spirit:name="comp1" spirit:version="1.0"/>
+        </spirit:componentInstance>
+        <spirit:componentInstance>
+            <spirit:name>instance2</spirit:name>
+            <spirit:componentRef spirit:name="comp2" spirit:version="1.0"/>
+        </spirit:componentInstance>
+    </spirit:componentInstances>
+
+    <!-- Ad-hoc Connections -->
+    <spirit:adHocConnections>
+        <spirit:adHocConnection>
+            <spirit:name>conn1</spirit:name>
+            <spirit:internalPortReference spirit:componentRef="instance1" spirit:portRef="port1"/>
+            <spirit:internalPortReference spirit:componentRef="instance2" spirit:portRef="port2"/>
+        </spirit:adHocConnection>
+    </spirit:adHocConnections>
+
+    <!-- File Sets -->
+    <spirit:fileSets>
+        <spirit:fileSet>
+            <spirit:name>rtl</spirit:name>
+            <spirit:file>
+                <spirit:name>test.v</spirit:name>
+                <spirit:fileType>verilogSource</spirit:fileType>
+            </spirit:file>
+        </spirit:fileSet>
+    </spirit:fileSets>
+
+    <!-- Views -->
+    <spirit:views>
+        <spirit:view>
+            <spirit:name>rtl</spirit:name>
+            <spirit:envIdentifier>verilog</spirit:envIdentifier>
+            <spirit:fileSetRef>rtl</spirit:fileSetRef>
+        </spirit:view>
+    </spirit:views>
+
+    <!-- Ports -->
+    <spirit:ports>
+        <spirit:port>
+            <spirit:name>clk</spirit:name>
+            <spirit:direction>in</spirit:direction>
+        </spirit:port>
+        <spirit:port>
+            <spirit:name>rst_n</spirit:name>
+            <spirit:direction>in</spirit:direction>
+        </spirit:port>
+    </spirit:ports>
+
+    <!-- Choices -->
+    <spirit:choices>
+        <spirit:choice>
+            <spirit:name>config</spirit:name>
+            <spirit:value>default</spirit:value>
+        </spirit:choice>
+    </spirit:choices>
+
+    <!-- Vendor Extensions -->
+    <spirit:vendorExtensions>
+        <vendor:custom>
+            <vendor:info>Test Info</vendor:info>
+        </vendor:custom>
+    </spirit:vendorExtensions>
+
+    <!-- Design -->
+    <spirit:design>
+        <spirit:name>TestDesign</spirit:name>
+        <spirit:version>1.0</spirit:version>
+        <spirit:componentInstance>
+            <spirit:name>instance1</spirit:name>
+            <spirit:componentRef spirit:name="comp1" spirit:version="1.0"/>
+        </spirit:componentInstance>
+        <spirit:componentInstance>
+            <spirit:name>instance2</spirit:name>
+            <spirit:componentRef spirit:name="comp2" spirit:version="1.0"/>
+        </spirit:componentInstance>
+    </spirit:design>
+</spirit:component> 

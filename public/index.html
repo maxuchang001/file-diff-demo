@@ -3,15 +3,17 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>文件差异对比工具</title>
-    <!-- 引入 diff 库 -->
-    <script src="./script/diff.min.js"></script>
+    <title>目录差异对比工具</title>
     <style>
         :root {
             --primary-color: #4a90e2;
             --secondary-color: #50e3c2;
             --background: #f5f7fa;
             --text-color: #2c3e50;
+            --added-color: #e6ffee;
+            --removed-color: #ffeef0;
+            --modified-color: #fff8e6;
+            --unchanged-color: #f8f9ff;
         }
 
         * {
@@ -45,7 +47,7 @@
             margin-bottom: 2rem;
         }
 
-        .file-card {
+        .dir-card {
             background: white;
             border-radius: 12px;
             padding: 1.5rem;
@@ -53,37 +55,44 @@
             transition: transform 0.2s;
         }
 
-        .file-card:hover {
+        .dir-card:hover {
             transform: translateY(-2px);
         }
 
-        .file-input {
+        .drop-zone {
             position: relative;
             margin: 1rem 0;
-        }
-
-        .file-input input {
-            opacity: 0;
-            position: absolute;
-            width: 100%;
-            height: 100%;
-            cursor: pointer;
-        }
-
-        .custom-upload {
-            display: flex;
-            flex-direction: column;
-            align-items: center;
-            padding: 2rem;
+            min-height: 200px;
             border: 2px dashed var(--primary-color);
             border-radius: 8px;
             background: #f8f9ff;
             color: var(--primary-color);
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            cursor: pointer;
+            transition: all 0.3s ease;
         }
 
-        .custom-upload i {
+        .drop-zone.dragover {
+            background: var(--primary-color);
+            color: white;
+            border-color: var(--secondary-color);
+        }
+
+        .drop-zone i {
             font-size: 2rem;
             margin-bottom: 1rem;
+        }
+
+        .drop-zone .path {
+            margin-top: 1rem;
+            font-size: 0.9rem;
+            color: var(--text-color);
+            word-break: break-all;
+            text-align: center;
+            padding: 0 1rem;
         }
 
         button {
@@ -103,33 +112,91 @@
             opacity: 0.9;
         }
 
-        .diff-result {
+        button:disabled {
+            opacity: 0.5;
+            cursor: not-allowed;
+        }
+
+        .comparison-result {
             background: white;
             border-radius: 12px;
             padding: 1.5rem;
             box-shadow: 0 4px 6px rgba(0, 0, 0, 0.05);
         }
 
-        .diff-line {
-            font-family: Monaco, Consolas, monospace;
-            padding: 2px 5px;
-            margin: 2px 0;
+        .result-section {
+            margin-bottom: 1.5rem;
+        }
+
+        .result-section h3 {
+            color: var(--primary-color);
+            margin-bottom: 1rem;
+        }
+
+        .file-list {
+            list-style: none;
+        }
+
+        .file-item {
+            padding: 0.5rem;
+            margin: 0.25rem 0;
+            border-radius: 4px;
+            display: flex;
+            align-items: center;
+        }
+
+        .file-item.clickable {
+            cursor: pointer;
+            transition: background-color 0.2s;
+        }
+
+        .file-item.clickable:hover {
+            filter: brightness(0.95);
+        }
+
+        .file-item i {
+            margin-right: 0.5rem;
         }
 
         .added {
-            background: #e6ffee;
-            color: #22863a;
+            background: var(--added-color);
         }
 
         .removed {
-            background: #ffeef0;
-            color: #cb2431;
+            background: var(--removed-color);
         }
 
-        .filename {
-            font-weight: 500;
-            margin-bottom: 1rem;
+        .modified {
+            background: var(--modified-color);
+        }
+
+        .unchanged {
+            background: var(--unchanged-color);
+        }
+
+        .stats {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 1rem;
+            margin-bottom: 2rem;
+        }
+
+        .stat-card {
+            background: white;
+            padding: 1rem;
+            border-radius: 8px;
+            text-align: center;
+            box-shadow: 0 2px 4px rgba(0, 0, 0, 0.05);
+        }
+
+        .stat-card h4 {
             color: var(--primary-color);
+            margin-bottom: 0.5rem;
+        }
+
+        .stat-card .number {
+            font-size: 1.5rem;
+            font-weight: bold;
         }
 
         @media (max-width: 768px) {
@@ -140,127 +207,306 @@
     </style>
 </head>
 <body>
-    <div id="container" class="container">
+    <div class="container">
         <div class="header">
-            <h1>文件差异对比工具</h1>
-            <p>上传两个文本文件进行差异对比</p>
+            <h1>目录差异对比工具</h1>
+            <p>拖拽两个目录到下方区域进行差异对比</p>
         </div>
 
         <div class="upload-section">
-            <div class="file-card">
-                <div class="filename" id="file1-name">选择文件 1</div>
-                <div class="file-input">
-                    <input type="file" id="file1" accept=".*">
-                    <div class="custom-upload">
-                        <i>📁</i>
-                        <span>点击选择文件 1</span>
-                    </div>
+            <div class="dir-card">
+                <div class="filename" id="dir1-name">目录 1</div>
+                <div class="drop-zone" id="drop-zone-1">
+                    <i>📁</i>
+                    <span>拖拽目录到这里</span>
+                    <div class="path" id="dir1-path"></div>
                 </div>
             </div>
 
-            <div class="file-card">
-                <div class="filename" id="file2-name">选择文件 2</div>
-                <div class="file-input">
-                    <input type="file" id="file2" accept=".*">
-                    <div class="custom-upload">
-                        <i>📁</i>
-                        <span>点击选择文件 2</span>
-                    </div>
+            <div class="dir-card">
+                <div class="filename" id="dir2-name">目录 2</div>
+                <div class="drop-zone" id="drop-zone-2">
+                    <i>📁</i>
+                    <span>拖拽目录到这里</span>
+                    <div class="path" id="dir2-path"></div>
                 </div>
             </div>
         </div>
 
-        <button onclick="compareFiles()">开始对比</button>
+        <button onclick="compareDirectories()" id="compare-btn">开始对比</button>
 
-        <div class="diff-result" id="diff-result"></div>
+        <div class="comparison-result" id="comparison-result" style="display: none;">
+            <div class="stats" id="stats"></div>
+            <div class="result-section">
+                <h3>新增文件</h3>
+                <ul class="file-list" id="added-files"></ul>
+            </div>
+            <div class="result-section">
+                <h3>删除文件</h3>
+                <ul class="file-list" id="removed-files"></ul>
+            </div>
+            <div class="result-section">
+                <h3>修改文件</h3>
+                <ul class="file-list" id="modified-files"></ul>
+            </div>
+            <div class="result-section">
+                <h3>未变文件</h3>
+                <ul class="file-list" id="unchanged-files"></ul>
+            </div>
+        </div>
+        <div id="diff-viewer" style="display:none;">
+            <button onclick="closeDiffViewer()" style="margin-bottom: 10px;">返回</button>
+            <iframe id="diff-frame" style="width:100%;height:80vh;border:none;background:white;"></iframe>
+        </div>
     </div>
-    <div id="diff" style="display: none;">
-        <button onclick="goback()" style="position: absolute;">返回</button>
-        <iframe id="diff-iframe" src="" style="width: 100%; border: none; overflow: hidden;"></iframe>
-    </div>
+
     <script>
-        const readFile = (file) => {
-            return new Promise((resolve, reject) => {
-                const reader = new FileReader()
-                reader.onload = (e) => resolve(e.target.result)
-                reader.onerror = (e) => reject(e)
-                reader.readAsText(file)
-            })
+        let dir1Files = [];
+        let dir2Files = [];
+        let dir1Name = '';
+        let dir2Name = '';
+
+        // 递归读取文件夹下所有文件
+        function readAllFiles(entry, path = '') {
+            return new Promise((resolve) => {
+                if (entry.isFile) {
+                    entry.file(file => {
+                        // 去掉根目录名称，只保留相对路径
+                        file.relativePath = path + entry.name;
+                        resolve([file]);
+                    });
+                } else if (entry.isDirectory) {
+                    const dirReader = entry.createReader();
+                    let entries = [];
+                    function readEntries() {
+                        dirReader.readEntries(async results => {
+                            if (!results.length) {
+                                // 递归结束
+                                let files = [];
+                                for (const e of entries) {
+                                    // 去掉根目录名称，只保留相对路径
+                                    files = files.concat(await readAllFiles(e, path));
+                                }
+                                resolve(files);
+                            } else {
+                                entries = entries.concat(Array.from(results));
+                                readEntries();
+                            }
+                        });
+                    }
+                    readEntries();
+                } else {
+                    resolve([]);
+                }
+            });
         }
 
-        async function compareFiles() {
-            const formData = new FormData()
-            const file1 = document.getElementById('file1').files[0]
-            const file2 = document.getElementById('file2').files[0]
+        function setupDropZone(elementId, pathId, dirNum) {
+            const dropZone = document.getElementById(elementId);
+            const pathElement = document.getElementById(pathId);
 
-            if (!file1 || !file2) {
-                alert('请选择两个文件')
-                return
+            ['dragenter', 'dragover', 'dragleave', 'drop'].forEach(eventName => {
+                dropZone.addEventListener(eventName, preventDefaults, false);
+            });
+
+            function preventDefaults(e) {
+                e.preventDefault();
+                e.stopPropagation();
             }
 
-            // 显示加载状态
-            const btn = document.querySelector('button')
+            ['dragenter', 'dragover'].forEach(eventName => {
+                dropZone.addEventListener(eventName, highlight, false);
+            });
+
+            ['dragleave', 'drop'].forEach(eventName => {
+                dropZone.addEventListener(eventName, unhighlight, false);
+            });
+
+            function highlight(e) {
+                dropZone.classList.add('dragover');
+            }
+
+            function unhighlight(e) {
+                dropZone.classList.remove('dragover');
+            }
+
+            dropZone.addEventListener('drop', async function(e) {
+                const dt = e.dataTransfer;
+                const items = dt.items;
+                if (items.length > 0) {
+                    const item = items[0];
+                    if (item.kind === 'file') {
+                        const entry = item.webkitGetAsEntry();
+                        if (entry && entry.isDirectory) {
+                            pathElement.textContent = entry.name;
+                            if (dirNum === 1) {
+                                dir1Name = entry.name;
+                                // 从根目录开始读取，但不包含根目录名称
+                                dir1Files = await readAllFiles(entry, '');
+                            } else {
+                                dir2Name = entry.name;
+                                // 从根目录开始读取，但不包含根目录名称
+                                dir2Files = await readAllFiles(entry, '');
+                            }
+                        } else {
+                            alert('请拖拽文件夹而不是文件');
+                        }
+                    }
+                }
+            }, false);
+        }
+
+        setupDropZone('drop-zone-1', 'dir1-path', 1);
+        setupDropZone('drop-zone-2', 'dir2-path', 2);
+
+        async function compareDirectories() {
+            if (!dir1Files.length || !dir2Files.length) {
+                alert('请选择两个目录');
+                return;
+            }
+            const btn = document.getElementById('compare-btn');
             try {
-                btn.disabled = true
-                btn.textContent = '处理中...'
-
-                formData.append('file1', file1)
-                formData.append('file2', file2)
-
+                btn.disabled = true;
+                btn.textContent = '处理中...';
+                const formData = new FormData();
+                dir1Files.forEach(file => {
+                    formData.append('dir1', file, file.relativePath);
+                });
+                dir2Files.forEach(file => {
+                    formData.append('dir2', file, file.relativePath);
+                });
                 const response = await fetch('/api/compare', {
                     method: 'POST',
                     body: formData
-                })
-
-                const result = await response.json()
-                if (!response.ok){
-                    throw result
-                    btn.disabled = false
-                    btn.textContent = '开始对比'
+                });
+                const result = await response.json();
+                if (!response.ok) {
+                    throw new Error(result.error || '比较失败');
                 }
-
-                const responseName = file1.name + ' vs ' + file2.name + ' 差异对比结果'
-                renderDiff(responseName,result.diff)
-
-                btn.disabled = false
-                btn.textContent = '开始对比'
+                displayResults(result);
             } catch (error) {
-                alert('错误: ' + (error.message || error.status))
-                btn.disabled = false
-                btn.textContent = '开始对比'
+                alert('错误: ' + error.message);
             } finally {
+                btn.disabled = false;
+                btn.textContent = '开始对比';
             }
         }
 
-        function renderDiff(responseName,diff) {
-            const container = document.getElementById('diff-result')
-            container.innerHTML = `<h2>${responseName}</h2>`
-            container.addEventListener('click', function() {
-                showDiff(responseName, diff)
-            })
+        async function compareFile(filePath) {
+            try {
+                const formData = new FormData();
+                // 分别取自两个目录
+                const file1 = dir1Files.find(f => f.relativePath === filePath);
+                const file2 = dir2Files.find(f => f.relativePath === filePath);
+                if (!file1 || !file2) {
+                    throw new Error('两个目录都需要有该文件');
+                }
+                // 调试输出
+                console.log('File1:', file1.relativePath, file1.name);
+                console.log('File2:', file2.relativePath, file2.name);
+                
+                // 创建新的 File 对象
+                const file1Blob = new File([file1], file1.name, { type: file1.type });
+                const file2Blob = new File([file2], file2.name, { type: file2.type });
+                
+                formData.append('file1', file1Blob);
+                formData.append('file2', file2Blob);
+                formData.append('file1_name', dir1Name);
+                formData.append('file2_name', dir2Name);
+                
+                // 添加文件扩展名
+                const ext = '.' + filePath.split('.').pop().toLowerCase();
+                formData.append('ext', ext);
+                
+                const response = await fetch('/api/compare_file', {
+                    method: 'POST',
+                    body: formData
+                });
+                const result = await response.json();
+                if (!response.ok) {
+                    throw new Error(result.error || '文件比较失败');
+                }
+                if (result.status === 'ok') {
+                    // 页面内展示对比报告
+                    document.getElementById('comparison-result').style.display = 'none';
+                    document.getElementById('diff-viewer').style.display = 'block';
+                    const diffFrame = document.getElementById('diff-frame');
+                    // 直接使用返回的URL
+                    diffFrame.src = result.diff_url;
+                    // 添加加载事件监听
+                    diffFrame.onload = function() {
+                        console.log('差异对比页面已加载');
+                    };
+                } else {
+                    alert(result.message || '不支持的文件类型');
+                }
+            } catch (error) {
+                alert('错误: ' + error.message);
+            }
         }
 
-        function showDiff(responseName, diff) {
-            var url = window.location.origin + diff.substring(1)
-            document.getElementById('diff-iframe').src = url
-            document.getElementById('diff-iframe').onload = function() {
-                this.height = this.contentWindow.document.body.scrollHeight+10;
-            };
-            document.getElementById('container').style.display = 'none'
-            document.getElementById('diff').style.display = 'block'
+        function closeDiffViewer() {
+            document.getElementById('diff-viewer').style.display = 'none';
+            document.getElementById('diff-frame').src = '';
+            document.getElementById('comparison-result').style.display = 'block';
         }
-        function goback() {
-            document.getElementById('container').style.display = 'block'
-            document.getElementById('diff').style.display = 'none'
-        }
-        // 更新文件名显示
-        document.getElementById('file1').addEventListener('change', function(e) {
-            document.getElementById('file1-name').textContent = e.target.files[0].name
-        })
 
-        document.getElementById('file2').addEventListener('change', function(e) {
-            document.getElementById('file2-name').textContent = e.target.files[0].name
-        })
+        function displayResults(result) {
+            const resultDiv = document.getElementById('comparison-result');
+            resultDiv.style.display = 'block';
+
+            // 显示统计信息
+            const stats = result.stats;
+            document.getElementById('stats').innerHTML = `
+                <div class="stat-card">
+                    <h4>新增文件</h4>
+                    <div class="number">${stats.only_in_dir2}</div>
+                </div>
+                <div class="stat-card">
+                    <h4>删除文件</h4>
+                    <div class="number">${stats.only_in_dir1}</div>
+                </div>
+                <div class="stat-card">
+                    <h4>修改文件</h4>
+                    <div class="number">${stats.different}</div>
+                </div>
+                <div class="stat-card">
+                    <h4>未变文件</h4>
+                    <div class="number">${stats.identical}</div>
+                </div>
+            `;
+
+            // 显示文件列表
+            const results = result.comparison_results;
+            
+            // 新增文件
+            document.getElementById('added-files').innerHTML = results.only_in_dir2
+                .map(file => `<li class="file-item added"><i>➕</i>${file}</li>`)
+                .join('');
+
+            // 删除文件
+            document.getElementById('removed-files').innerHTML = results.only_in_dir1
+                .map(file => `<li class="file-item removed"><i>➖</i>${file}</li>`)
+                .join('');
+
+            // 修改文件 - 添加点击事件
+            document.getElementById('modified-files').innerHTML = results.different
+                .map(file => {
+                    const ext = file.split('.').pop().toLowerCase();
+                    const isPdf = ext === 'pdf';
+                    const isText = ['.txt', '.py', '.c', '.cpp', '.h', '.hpp', '.java', '.js', '.html', '.css', '.json', '.xml', '.md', '.csv'].includes('.' + ext);
+                    return `<li class="file-item modified ${(isPdf || isText) ? 'clickable' : ''}" 
+                        ${(isPdf || isText) ? `onclick="compareFile('${file}')"` : ''}>
+                        <i>📝</i>${file}
+                    </li>`;
+                })
+                .join('');
+
+            // 未变文件
+            document.getElementById('unchanged-files').innerHTML = results.identical
+                .map(file => `<li class="file-item unchanged"><i>✓</i>${file}</li>`)
+                .join('');
+        }
     </script>
 </body>
 </html>

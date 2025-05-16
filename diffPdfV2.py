@@ -5,6 +5,9 @@ from PIL import Image, ImageDraw, ImageFont
 import cv2
 import numpy as np
 import fitz  # PyMuPDF
+import pytesseract
+import shutil
+import tempfile
 
 # ===== 配置部分 =====
 IMAGE_DIFF_COLOR = 'Orange'
@@ -14,6 +17,16 @@ LABEL_HEIGHT = 50
 LABEL_COLOR = "black"
 BG_COLOR = "white"
 FONT_PATH = "arial.ttf"  # 可替换为系统中可用字体路径
+
+# 配置 Poppler 路径
+POPPLER_PATH = r"C:\mine\program\poppler-24.08.0\Library\bin"
+
+# 配置图片差异显示
+DIFF_COLOR = (0, 0, 255)  # 红色
+DIFF_THRESHOLD = 30  # 差异阈值
+
+# 配置文本差异显示
+TEXT_DIFF_THICKNESS = 2
 
 # ===== 辅助函数 =====
 
@@ -31,7 +44,8 @@ def compare_texts(texts1, texts2):
     return diff_pages
 
 def render_pdf_to_images(pdf_path, dpi=200):
-    return convert_from_path(pdf_path, dpi=dpi)
+    """将PDF渲染为图片"""
+    return convert_from_path(pdf_path, dpi=dpi, poppler_path=POPPLER_PATH)
 
 def draw_labels(image, label):
     width, height = image.size
@@ -74,8 +88,8 @@ def highlight_differences(img1, img2, mark_text_diff=False):
 
     if mark_text_diff:
         w, h = img1.size
-        draw1.rectangle([10, 10, w - 10, h - 10], outline=TEXT_DIFF_COLOR, width=3)
-        draw2.rectangle([10, 10, w - 10, h - 10], outline=TEXT_DIFF_COLOR, width=3)
+        draw1.rectangle([10, 10, w - 10, h - 10], outline=TEXT_DIFF_COLOR, width=TEXT_DIFF_THICKNESS)
+        draw2.rectangle([10, 10, w - 10, h - 10], outline=TEXT_DIFF_COLOR, width=TEXT_DIFF_THICKNESS)
 
     return img1_draw, img2_draw
 
@@ -101,7 +115,7 @@ def generate_html_report(image_paths, html_output_path):
 
 # ===== 主程序 =====
 
-def diff_pdfs_side_by_side(pdf1_path, pdf2_path,file1_name,file2_name,output_dir):
+def diff_pdfs_side_by_side(pdf1_path, pdf2_path, file1_name, file2_name, output_dir):
     print("📄 提取文本差异...")
     texts1 = extract_text_by_page(pdf1_path)
     texts2 = extract_text_by_page(pdf2_path)
@@ -119,21 +133,33 @@ def diff_pdfs_side_by_side(pdf1_path, pdf2_path,file1_name,file2_name,output_dir
 
         mark_text = i in text_diff_pages
         img1_marked, img2_marked = highlight_differences(img1, img2, mark_text_diff=mark_text)
-        combined = create_combined_image(img1_marked, img2_marked,file1_name,file2_name)
+        combined = create_combined_image(img1_marked, img2_marked, file1_name, file2_name)
 
         out_path = os.path.join(output_dir, f"diff_page_{i+1}.png")
         combined.save(out_path)
-        combined_image_paths.append(out_path)
+        combined_image_paths.append(os.path.basename(out_path))
         print(f"✅ 页面 {i+1} 完成")
 
-    html_path = output_dir + '/' + "diff_report.html" # os.path.join(OUTPUT_DIR, "diff_report.html")
-    generate_html_report([os.path.basename(p) for p in combined_image_paths], html_path)
+    html_path = os.path.join(output_dir, "diff_report.html")
+    generate_html_report(combined_image_paths, html_path)
     print(f"📄 HTML 报告生成完成: {html_path}")
     return html_path
 
-def create_diff_report(pdf1, pdf2,file1_name,file2_name):
-    path = "./public/output/"
-    path += uuid.uuid4().hex
-    output_dir = path
-    os.makedirs(output_dir, exist_ok=True)
-    return diff_pdfs_side_by_side(pdf1, pdf2,file1_name,file2_name,output_dir)
+def create_diff_report(pdf1, pdf2, file1_name, file2_name):
+    try:
+        # 使用 static/diffs 目录
+        static_dir = os.path.join(os.path.dirname(__file__), 'static', 'diffs')
+        os.makedirs(static_dir, exist_ok=True)
+        
+        # 创建唯一的输出目录
+        output_dir = os.path.join(static_dir, uuid.uuid4().hex)
+        os.makedirs(output_dir, exist_ok=True)
+        
+        # 生成差异报告
+        html_path = diff_pdfs_side_by_side(pdf1, pdf2, file1_name, file2_name, output_dir)
+        
+        # 返回相对于 static 目录的路径
+        return 'ok', f'/static/diffs/{os.path.basename(output_dir)}/diff_report.html'
+    except Exception as e:
+        print(f"Error in create_diff_report: {str(e)}")
+        return 'no', str(e)
