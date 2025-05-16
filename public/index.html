@@ -1,0 +1,266 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>文件差异对比工具</title>
+    <!-- 引入 diff 库 -->
+    <script src="./script/diff.min.js"></script>
+    <style>
+        :root {
+            --primary-color: #4a90e2;
+            --secondary-color: #50e3c2;
+            --background: #f5f7fa;
+            --text-color: #2c3e50;
+        }
+
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+        }
+
+        body {
+            font-family: 'Segoe UI', system-ui, sans-serif;
+            line-height: 1.6;
+            background: var(--background);
+            color: var(--text-color);
+            padding: 2rem;
+        }
+
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+        }
+
+        .header {
+            text-align: center;
+            margin-bottom: 2rem;
+        }
+
+        .upload-section {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 2rem;
+            margin-bottom: 2rem;
+        }
+
+        .file-card {
+            background: white;
+            border-radius: 12px;
+            padding: 1.5rem;
+            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.05);
+            transition: transform 0.2s;
+        }
+
+        .file-card:hover {
+            transform: translateY(-2px);
+        }
+
+        .file-input {
+            position: relative;
+            margin: 1rem 0;
+        }
+
+        .file-input input {
+            opacity: 0;
+            position: absolute;
+            width: 100%;
+            height: 100%;
+            cursor: pointer;
+        }
+
+        .custom-upload {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            padding: 2rem;
+            border: 2px dashed var(--primary-color);
+            border-radius: 8px;
+            background: #f8f9ff;
+            color: var(--primary-color);
+        }
+
+        .custom-upload i {
+            font-size: 2rem;
+            margin-bottom: 1rem;
+        }
+
+        button {
+            background: linear-gradient(135deg, var(--primary-color), var(--secondary-color));
+            color: white;
+            border: none;
+            padding: 1rem 2rem;
+            border-radius: 8px;
+            cursor: pointer;
+            font-size: 1rem;
+            transition: opacity 0.2s;
+            display: block;
+            margin: 0 auto 2rem;
+        }
+
+        button:hover {
+            opacity: 0.9;
+        }
+
+        .diff-result {
+            background: white;
+            border-radius: 12px;
+            padding: 1.5rem;
+            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.05);
+        }
+
+        .diff-line {
+            font-family: Monaco, Consolas, monospace;
+            padding: 2px 5px;
+            margin: 2px 0;
+        }
+
+        .added {
+            background: #e6ffee;
+            color: #22863a;
+        }
+
+        .removed {
+            background: #ffeef0;
+            color: #cb2431;
+        }
+
+        .filename {
+            font-weight: 500;
+            margin-bottom: 1rem;
+            color: var(--primary-color);
+        }
+
+        @media (max-width: 768px) {
+            .upload-section {
+                grid-template-columns: 1fr;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div id="container" class="container">
+        <div class="header">
+            <h1>文件差异对比工具</h1>
+            <p>上传两个文本文件进行差异对比</p>
+        </div>
+
+        <div class="upload-section">
+            <div class="file-card">
+                <div class="filename" id="file1-name">选择文件 1</div>
+                <div class="file-input">
+                    <input type="file" id="file1" accept=".*">
+                    <div class="custom-upload">
+                        <i>📁</i>
+                        <span>点击选择文件 1</span>
+                    </div>
+                </div>
+            </div>
+
+            <div class="file-card">
+                <div class="filename" id="file2-name">选择文件 2</div>
+                <div class="file-input">
+                    <input type="file" id="file2" accept=".*">
+                    <div class="custom-upload">
+                        <i>📁</i>
+                        <span>点击选择文件 2</span>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <button onclick="compareFiles()">开始对比</button>
+
+        <div class="diff-result" id="diff-result"></div>
+    </div>
+    <div id="diff" style="display: none;">
+        <button onclick="goback()" style="position: absolute;">返回</button>
+        <iframe id="diff-iframe" src="" style="width: 100%; border: none; overflow: hidden;"></iframe>
+    </div>
+    <script>
+        const readFile = (file) => {
+            return new Promise((resolve, reject) => {
+                const reader = new FileReader()
+                reader.onload = (e) => resolve(e.target.result)
+                reader.onerror = (e) => reject(e)
+                reader.readAsText(file)
+            })
+        }
+
+        async function compareFiles() {
+            const formData = new FormData()
+            const file1 = document.getElementById('file1').files[0]
+            const file2 = document.getElementById('file2').files[0]
+
+            if (!file1 || !file2) {
+                alert('请选择两个文件')
+                return
+            }
+
+            // 显示加载状态
+            const btn = document.querySelector('button')
+            try {
+                btn.disabled = true
+                btn.textContent = '处理中...'
+
+                formData.append('file1', file1)
+                formData.append('file2', file2)
+
+                const response = await fetch('/api/compare', {
+                    method: 'POST',
+                    body: formData
+                })
+
+                const result = await response.json()
+                if (!response.ok){
+                    throw result
+                    btn.disabled = false
+                    btn.textContent = '开始对比'
+                }
+
+                const responseName = file1.name + ' vs ' + file2.name + ' 差异对比结果'
+                renderDiff(responseName,result.diff)
+
+                btn.disabled = false
+                btn.textContent = '开始对比'
+            } catch (error) {
+                alert('错误: ' + (error.message || error.status))
+                btn.disabled = false
+                btn.textContent = '开始对比'
+            } finally {
+            }
+        }
+
+        function renderDiff(responseName,diff) {
+            const container = document.getElementById('diff-result')
+            container.innerHTML = `<h2>${responseName}</h2>`
+            container.addEventListener('click', function() {
+                showDiff(responseName, diff)
+            })
+        }
+
+        function showDiff(responseName, diff) {
+            var url = window.location.origin + diff.substring(1)
+            document.getElementById('diff-iframe').src = url
+            document.getElementById('diff-iframe').onload = function() {
+                this.height = this.contentWindow.document.body.scrollHeight+10;
+            };
+            document.getElementById('container').style.display = 'none'
+            document.getElementById('diff').style.display = 'block'
+        }
+        function goback() {
+            document.getElementById('container').style.display = 'block'
+            document.getElementById('diff').style.display = 'none'
+        }
+        // 更新文件名显示
+        document.getElementById('file1').addEventListener('change', function(e) {
+            document.getElementById('file1-name').textContent = e.target.files[0].name
+        })
+
+        document.getElementById('file2').addEventListener('change', function(e) {
+            document.getElementById('file2-name').textContent = e.target.files[0].name
+        })
+    </script>
+</body>
+</html>
