@@ -1094,12 +1094,49 @@ class IPXACTVisualizer:
                     .modified {{ background-color: #ffffe6; }}
                     .summary {{ margin: 20px 0; padding: 10px; background-color: #f8f9fa; border-radius: 5px; }}
                     .summary-item {{ margin: 5px 0; }}
-                    .image-comparison {{ display: flex; justify-content: space-between; margin: 20px 0; }}
-                    .image-container {{ width: 48%; }}
-                    .image-container img {{ width: 100%; max-width: 600px; height: auto; }}
-                    .image-label {{ text-align: center; margin: 5px 0; }}
+                    .image-comparison {{ 
+                        display: flex; 
+                        justify-content: center; 
+                        align-items: center;
+                        gap: 2rem;
+                        margin: 20px 0; 
+                    }}
+                    .image-container {{ 
+                        display: flex;
+                        flex-direction: column;
+                        align-items: center;
+                        justify-content: center;
+                        height: 30rem;
+                        width: 40vw;
+                        border-radius: 8px;
+                        padding: 1rem;
+                    }}
+                    .image-container.v1 {{
+                        background-color: #e6f3ff;
+                    }}
+                    .image-container.v2 {{
+                        background-color: #f3e6ff;
+                    }}
+                    .image-container img {{ 
+                        max-height: 28rem;
+                        max-width: 38vw;
+                        object-fit: contain;
+                    }}
+                    .image-label {{ 
+                        text-align: center; 
+                        margin: 5px 0;
+                        font-weight: bold;
+                        color: #333;
+                    }}
                     .content-section {{ margin: 20px; }}
-                    .diagram-section {{ margin-top: 20px; padding-top: 20px; border-top: 1px solid #ddd; }}
+                    .diagram-section {{ 
+                        margin-top: 20px; 
+                        padding-top: 20px; 
+                        border-top: 1px solid #ddd;
+                        display: flex;
+                        flex-direction: column;
+                        align-items: center;
+                    }}
                     .header {{ margin-bottom: 20px; }}
                 </style>
             </head>
@@ -1176,14 +1213,12 @@ class IPXACTVisualizer:
                     html_content += '<div class="diagram-section">'
                     html_content += '<div class="section-title">Component Diagram</div>'
                     html_content += '<div class="image-comparison">'
-                    html_content += f'<div class="image-container"><div class="image-label">{base_name1}</div><img src="{results["component1"]}"></div>'
-                    html_content += f'<div class="image-container"><div class="image-label">{base_name2}</div><img src="{results["component2"]}"></div>'
+                    html_content += f'<div class="image-container v1"><div class="image-label">{base_name1}</div><img src="{results["component1"]}"></div>'
+                    html_content += f'<div class="image-container v2"><div class="image-label">{base_name2}</div><img src="{results["component2"]}"></div>'
                     html_content += "</div>"
                     if results.get("component_diff"):
-                        html_content += (
-                            '<div class="section-title">Component Differences</div>'
-                        )
-                        html_content += f'<div class="image-container"><img src="{results["component_diff"]}"></div>'
+                        html_content += '<div class="section-title">Component Differences</div>'
+                        html_content += f'<div class="image-container v1"><img src="{results["component_diff"]}"></div>'
                     html_content += "</div>"
 
                 elif (
@@ -1196,12 +1231,12 @@ class IPXACTVisualizer:
                         '<div class="section-title">Component Instance Diagram</div>'
                     )
                     html_content += '<div class="image-comparison">'
-                    html_content += f'<div class="image-container"><div class="image-label">{base_name1}</div><img src="{results["componentinstance1"]}"></div>'
-                    html_content += f'<div class="image-container"><div class="image-label">{base_name2}</div><img src="{results["componentinstance2"]}"></div>'
+                    html_content += f'<div class="image-container v1"><div class="image-label">{base_name1}</div><img src="{results["componentinstance1"]}"></div>'
+                    html_content += f'<div class="image-container v2"><div class="image-label">{base_name2}</div><img src="{results["componentinstance2"]}"></div>'
                     html_content += "</div>"
                     if results.get("componentinstance_diff"):
                         html_content += '<div class="section-title">Component Instance Differences</div>'
-                        html_content += f'<div class="image-container"><img src="{results["componentinstance_diff"]}"></div>'
+                        html_content += f'<div class="image-container v1"><img src="{results["componentinstance_diff"]}"></div>'
                     html_content += "</div>"
 
                 elif (
@@ -1214,12 +1249,12 @@ class IPXACTVisualizer:
                         '<div class="section-title">Bus Definition Diagram</div>'
                     )
                     html_content += '<div class="image-comparison">'
-                    html_content += f'<div class="image-container"><div class="image-label">{base_name1}</div><img src="{results["busdefinition1"]}"></div>'
-                    html_content += f'<div class="image-container"><div class="image-label">{base_name2}</div><img src="{results["busdefinition2"]}"></div>'
+                    html_content += f'<div class="image-container v1"><div class="image-label">{base_name1}</div><img src="{results["busdefinition1"]}"></div>'
+                    html_content += f'<div class="image-container v2"><div class="image-label">{base_name2}</div><img src="{results["busdefinition2"]}"></div>'
                     html_content += "</div>"
                     if results.get("busdefinition_diff"):
                         html_content += '<div class="section-title">Bus Definition Differences</div>'
-                        html_content += f'<div class="image-container"><img src="{results["busdefinition_diff"]}"></div>'
+                        html_content += f'<div class="image-container v1"><img src="{results["busdefinition_diff"]}"></div>'
                     html_content += "</div>"
 
                 elif (
@@ -1232,14 +1267,14 @@ class IPXACTVisualizer:
                         '<div class="section-title">Bus Interface Diagram</div>'
                     )
                     html_content += '<div class="image-comparison">'
-                    html_content += f'<div class="image-container"><div class="image-label">{base_name1}</div><img src="{results["businterface1"]}"></div>'
-                    html_content += f'<div class="image-container"><div class="image-label">{base_name2}</div><img src="{results["businterface2"]}"></div>'
+                    html_content += f'<div class="image-container v1"><div class="image-label">{base_name1}</div><img src="{results["businterface1"]}"></div>'
+                    html_content += f'<div class="image-container v2"><div class="image-label">{base_name2}</div><img src="{results["businterface2"]}"></div>'
                     html_content += "</div>"
                     if results.get("businterface_diff"):
                         html_content += (
                             '<div class="section-title">Bus Interface Differences</div>'
                         )
-                        html_content += f'<div class="image-container"><img src="{results["businterface_diff"]}"></div>'
+                        html_content += f'<div class="image-container v1"><img src="{results["businterface_diff"]}"></div>'
                     html_content += "</div>"
 
                 elif (
@@ -1250,14 +1285,14 @@ class IPXACTVisualizer:
                     html_content += '<div class="diagram-section">'
                     html_content += '<div class="section-title">Design Diagram</div>'
                     html_content += '<div class="image-comparison">'
-                    html_content += f'<div class="image-container"><div class="image-label">{base_name1}</div><img src="{results["design1"]}"></div>'
-                    html_content += f'<div class="image-container"><div class="image-label">{base_name2}</div><img src="{results["design2"]}"></div>'
+                    html_content += f'<div class="image-container v1"><div class="image-label">{base_name1}</div><img src="{results["design1"]}"></div>'
+                    html_content += f'<div class="image-container v2"><div class="image-label">{base_name2}</div><img src="{results["design2"]}"></div>'
                     html_content += "</div>"
                     if results.get("design_diff"):
                         html_content += (
                             '<div class="section-title">Design Differences</div>'
                         )
-                        html_content += f'<div class="image-container"><img src="{results["design_diff"]}"></div>'
+                        html_content += f'<div class="image-container v1"><img src="{results["design_diff"]}"></div>'
                     html_content += "</div>"
 
                 elif (
@@ -1266,14 +1301,14 @@ class IPXACTVisualizer:
                     html_content += '<div class="diagram-section">'
                     html_content += '<div class="section-title">View Diagram</div>'
                     html_content += '<div class="image-comparison">'
-                    html_content += f'<div class="image-container"><div class="image-label">{base_name1}</div><img src="{results["view1"]}"></div>'
-                    html_content += f'<div class="image-container"><div class="image-label">{base_name2}</div><img src="{results["view2"]}"></div>'
+                    html_content += f'<div class="image-container v1"><div class="image-label">{base_name1}</div><img src="{results["view1"]}"></div>'
+                    html_content += f'<div class="image-container v2"><div class="image-label">{base_name2}</div><img src="{results["view2"]}"></div>'
                     html_content += "</div>"
                     if results.get("view_diff"):
                         html_content += (
                             '<div class="section-title">View Differences</div>'
                         )
-                        html_content += f'<div class="image-container"><img src="{results["view_diff"]}"></div>'
+                        html_content += f'<div class="image-container v1"><img src="{results["view_diff"]}"></div>'
                     html_content += "</div>"
 
                 elif (
@@ -1286,14 +1321,14 @@ class IPXACTVisualizer:
                         '<div class="section-title">Address Space Diagram</div>'
                     )
                     html_content += '<div class="image-comparison">'
-                    html_content += f'<div class="image-container"><div class="image-label">{base_name1}</div><img src="{results["addressspace1"]}"></div>'
-                    html_content += f'<div class="image-container"><div class="image-label">{base_name2}</div><img src="{results["addressspace2"]}"></div>'
+                    html_content += f'<div class="image-container v1"><div class="image-label">{base_name1}</div><img src="{results["addressspace1"]}"></div>'
+                    html_content += f'<div class="image-container v2"><div class="image-label">{base_name2}</div><img src="{results["addressspace2"]}"></div>'
                     html_content += "</div>"
                     if results.get("addressspace_diff"):
                         html_content += (
                             '<div class="section-title">Address Space Differences</div>'
                         )
-                        html_content += f'<div class="image-container"><img src="{results["addressspace_diff"]}"></div>'
+                        html_content += f'<div class="image-container v1"><img src="{results["addressspace_diff"]}"></div>'
                     html_content += "</div>"
 
                 elif (
@@ -1304,14 +1339,14 @@ class IPXACTVisualizer:
                     html_content += '<div class="diagram-section">'
                     html_content += '<div class="section-title">Register Diagram</div>'
                     html_content += '<div class="image-comparison">'
-                    html_content += f'<div class="image-container"><div class="image-label">{base_name1}</div><img src="{results["register1"]}"></div>'
-                    html_content += f'<div class="image-container"><div class="image-label">{base_name2}</div><img src="{results["register2"]}"></div>'
+                    html_content += f'<div class="image-container v1"><div class="image-label">{base_name1}</div><img src="{results["register1"]}"></div>'
+                    html_content += f'<div class="image-container v2"><div class="image-label">{base_name2}</div><img src="{results["register2"]}"></div>'
                     html_content += "</div>"
                     if results.get("register_diff"):
                         html_content += (
                             '<div class="section-title">Register Differences</div>'
                         )
-                        html_content += f'<div class="image-container"><img src="{results["register_diff"]}"></div>'
+                        html_content += f'<div class="image-container v1"><img src="{results["register_diff"]}"></div>'
                     html_content += "</div>"
 
                 elif (
@@ -1324,14 +1359,14 @@ class IPXACTVisualizer:
                         '<div class="section-title">Memory Map Diagram</div>'
                     )
                     html_content += '<div class="image-comparison">'
-                    html_content += f'<div class="image-container"><div class="image-label">{base_name1}</div><img src="{results["memorymap1"]}"></div>'
-                    html_content += f'<div class="image-container"><div class="image-label">{base_name2}</div><img src="{results["memorymap2"]}"></div>'
+                    html_content += f'<div class="image-container v1"><div class="image-label">{base_name1}</div><img src="{results["memorymap1"]}"></div>'
+                    html_content += f'<div class="image-container v2"><div class="image-label">{base_name2}</div><img src="{results["memorymap2"]}"></div>'
                     html_content += "</div>"
                     if results.get("memorymap_diff"):
                         html_content += (
                             '<div class="section-title">Memory Map Differences</div>'
                         )
-                        html_content += f'<div class="image-container"><img src="{results["memorymap_diff"]}"></div>'
+                        html_content += f'<div class="image-container v1"><img src="{results["memorymap_diff"]}"></div>'
                     html_content += "</div>"
 
                 html_content += "</div>"
