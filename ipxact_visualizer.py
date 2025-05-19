@@ -86,119 +86,6 @@ class IPXACTVisualizer:
         self.xml_file = xml_file
         print(f"Processing XML file: {xml_file}")
 
-    def generate_module_diagram(self, output_img="module_diagram"):
-        components = [
-            elem.find("spirit:name", self.ns).text
-            for elem in self.root.findall(".//spirit:componentInstance", self.ns)
-        ]
-        connections = [
-            elem.find("spirit:name", self.ns).text
-            for elem in self.root.findall(".//spirit:interconnection", self.ns)
-        ]
-
-        if not components:
-            print("No components found in XML")
-            return None
-
-        dot = graphviz.Digraph(comment="Module Diagram", engine="dot")
-        for c in components:
-            dot.node(c)
-        if len(components) >= 2:
-            dot.edge(components[0], components[1])
-
-        # 直接在内存中生成图片
-        image_data = generate_graphviz_image(dot)
-        if image_data:
-            return image_to_base64_from_memory(image_data)
-        return None
-
-    def generate_register_table(self):
-        registers = []
-        for reg in self.root.findall(".//spirit:register", self.ns):
-            name = reg.find("spirit:name", self.ns).text
-            addr = reg.find("spirit:addressOffset", self.ns).text
-            registers.append({"Register Name": name, "Address Offset": addr})
-        if registers:
-            df = pd.DataFrame(registers)
-            fig, ax = plt.subplots(figsize=(6, 0.5 + 0.4 * len(df)))
-            ax.axis("off")
-            table = ax.table(
-                cellText=df.values, colLabels=df.columns, loc="center", cellLoc="center"
-            )
-            table.auto_set_font_size(False)
-            table.set_fontsize(10)
-            table.scale(1, 1.5)
-            plt.tight_layout()
-
-            # 直接在内存中生成图片
-            image_data = generate_matplotlib_image(fig)
-            plt.close(fig)
-
-            if image_data:
-                return image_to_base64_from_memory(image_data)
-        print("No registers found in XML")
-        return None
-
-    def generate_parameter_table(self):
-        params = []
-        for param in self.root.findall(".//spirit:parameter", self.ns):
-            name = param.find("spirit:name", self.ns).text
-            value = param.find("spirit:value", self.ns).text
-            params.append({"Parameter": name, "Value": value})
-        if params:
-            df = pd.DataFrame(params)
-            fig, ax = plt.subplots(figsize=(6, 0.5 + 0.4 * len(df)))
-            ax.axis("off")
-            table = ax.table(
-                cellText=df.values, colLabels=df.columns, loc="center", cellLoc="center"
-            )
-            table.auto_set_font_size(False)
-            table.set_fontsize(10)
-            table.scale(1, 1.5)
-            plt.tight_layout()
-
-            # 直接在内存中生成图片
-            image_data = generate_matplotlib_image(fig)
-            plt.close(fig)
-
-            if image_data:
-                return image_to_base64_from_memory(image_data)
-        print("No parameters found in XML")
-        return None
-
-    def generate_interface_view(self):
-        interfaces = []
-        for intf in self.root.findall(".//spirit:busInterface", self.ns):
-            name = intf.find("spirit:name", self.ns).text
-            bus_type_elem = intf.find("spirit:busType", self.ns)
-            bus_type = (
-                bus_type_elem.get("spirit:name")
-                if bus_type_elem is not None
-                else "Unknown"
-            )
-            interfaces.append({"Interface Name": name, "Bus Type": bus_type})
-
-        if interfaces:
-            df = pd.DataFrame(interfaces)
-            fig, ax = plt.subplots(figsize=(6, 0.5 + 0.4 * len(df)))
-            ax.axis("off")
-            table = ax.table(
-                cellText=df.values, colLabels=df.columns, loc="center", cellLoc="center"
-            )
-            table.auto_set_font_size(False)
-            table.set_fontsize(10)
-            table.scale(1, 1.5)
-            plt.tight_layout()
-
-            # 直接在内存中生成图片
-            image_data = generate_matplotlib_image(fig)
-            plt.close(fig)
-
-            if image_data:
-                return image_to_base64_from_memory(image_data)
-        print("No interfaces found in XML")
-        return None
-
     def extract_ipxact_elements(self, root):
         """提取所有常见IPXACT元素"""
         elements = {
@@ -295,12 +182,16 @@ class IPXACTVisualizer:
                 ci_data = {
                     "name": ci.findtext("spirit:name", default="N/A", namespaces=ns),
                     "componentRef": (
-                        ci.find("spirit:componentRef", ns).get(f"{{{ns['spirit']}}}name")
+                        ci.find("spirit:componentRef", ns).get(
+                            f"{{{ns['spirit']}}}name"
+                        )
                         if ci.find("spirit:componentRef", ns) is not None
                         else "N/A"
                     ),
                     "version": (
-                        ci.find("spirit:componentRef", ns).get(f"{{{ns['spirit']}}}version")
+                        ci.find("spirit:componentRef", ns).get(
+                            f"{{{ns['spirit']}}}version"
+                        )
                         if ci.find("spirit:componentRef", ns) is not None
                         else "N/A"
                     ),
@@ -324,7 +215,9 @@ class IPXACTVisualizer:
         for intf in root.findall(".//spirit:busInterface", ns):
             bus_type = intf.find("spirit:busType", ns)
             bus_type_name = (
-                bus_type.get(f"{{{ns['spirit']}}}name") if bus_type is not None else "N/A"
+                bus_type.get(f"{{{ns['spirit']}}}name")
+                if bus_type is not None
+                else "N/A"
             )
             elements["businterface"].append(
                 {
@@ -460,7 +353,7 @@ class IPXACTVisualizer:
 
             # 创建图
             dot = graphviz.Digraph(comment="Component Instances Diff", engine="dot")
-            dot.attr(rankdir="TB", dpi="300")
+            dot.attr(rankdir="TB", dpi="500", bgcolor="transparent")
 
             # 添加节点
             for name in set(nodes1.keys()) | set(nodes2.keys()):
@@ -570,19 +463,23 @@ class IPXACTVisualizer:
             print(f"Error generating component instances diff diagram: {e}")
             return None
 
-    def generate_bus_interfaces_diff_diagram(self, elements1, elements2, output_img="bus_intf_diff"):
+    def generate_bus_interfaces_diff_diagram(
+        self, elements1, elements2, output_img="bus_intf_diff"
+    ):
         """生成总线接口差异图"""
         try:
             # 提取节点信息
             interfaces1 = []
             interfaces2 = []
-            
+
             # 从第一个XML中提取接口信息
             for intf in self.root.findall(".//spirit:busInterface", self.ns):
                 name = intf.findtext("spirit:name", default="N/A", namespaces=self.ns)
                 bus_type = intf.find("spirit:busType", self.ns)
                 bus_type_name = (
-                    bus_type.get(f"{{{self.ns['spirit']}}}name") if bus_type is not None else "N/A"
+                    bus_type.get(f"{{{self.ns['spirit']}}}name")
+                    if bus_type is not None
+                    else "N/A"
                 )
                 mode = (
                     "master"
@@ -604,7 +501,7 @@ class IPXACTVisualizer:
 
             # 创建图
             dot = graphviz.Digraph(comment="Bus Interfaces Diff", engine="dot")
-            dot.attr(rankdir="TB", dpi="300", bgcolor="white")
+            dot.attr(rankdir="TB", dpi="500", bgcolor="transparent")
 
             # 添加节点
             for name, bus_type, mode in interfaces1:
@@ -625,7 +522,7 @@ class IPXACTVisualizer:
                         f"{name}\n({bus_type})\n{mode}",
                         shape="box",
                         style="filled",
-                        fillcolor="#ffa6a6"
+                        fillcolor="#ffa6a6",
                     )
                 elif changed:
                     # 修改的节点 - 黄色
@@ -634,7 +531,7 @@ class IPXACTVisualizer:
                         f"{name}\n({bus_type})\n{mode}",
                         shape="box",
                         style="filled",
-                        fillcolor="#ffffa6"
+                        fillcolor="#ffffa6",
                     )
                 else:
                     # 未修改的节点 - 白色
@@ -643,7 +540,7 @@ class IPXACTVisualizer:
                         f"{name}\n({bus_type})\n{mode}",
                         shape="box",
                         style="filled",
-                        fillcolor="#ffffff"
+                        fillcolor="#ffffff",
                     )
 
             # 添加第二个版本中的新节点
@@ -653,7 +550,7 @@ class IPXACTVisualizer:
                     if name == name1:
                         found_in_v1 = True
                         break
-                
+
                 if not found_in_v1:
                     # 新增的节点 - 绿色
                     dot.node(
@@ -661,7 +558,7 @@ class IPXACTVisualizer:
                         f"{name}\n({bus_type})\n{mode}",
                         shape="box",
                         style="filled",
-                        fillcolor="#a6ffa6"
+                        fillcolor="#a6ffa6",
                     )
 
             # 添加连接
@@ -673,12 +570,18 @@ class IPXACTVisualizer:
                         found_in_v2 = False
                         for k, (name3, bus_type3, mode3) in enumerate(interfaces2):
                             for l, (name4, bus_type4, mode4) in enumerate(interfaces2):
-                                if k != l and name1 == name3 and name2 == name4 and mode3 == "master" and mode4 == "slave":
+                                if (
+                                    k != l
+                                    and name1 == name3
+                                    and name2 == name4
+                                    and mode3 == "master"
+                                    and mode4 == "slave"
+                                ):
                                     found_in_v2 = True
                                     break
                             if found_in_v2:
                                 break
-                        
+
                         if found_in_v2:
                             # 未修改的连接 - 白色
                             dot.edge(name1, name2, color="#ffffff")
@@ -694,12 +597,18 @@ class IPXACTVisualizer:
                         found_in_v1 = False
                         for k, (name3, bus_type3, mode3) in enumerate(interfaces1):
                             for l, (name4, bus_type4, mode4) in enumerate(interfaces1):
-                                if k != l and name1 == name3 and name2 == name4 and mode3 == "master" and mode4 == "slave":
+                                if (
+                                    k != l
+                                    and name1 == name3
+                                    and name2 == name4
+                                    and mode3 == "master"
+                                    and mode4 == "slave"
+                                ):
                                     found_in_v1 = True
                                     break
                             if found_in_v1:
                                 break
-                        
+
                         if not found_in_v1:
                             # 新增的连接 - 绿色
                             dot.edge(name1, name2, color="#a6ffa6")
@@ -717,101 +626,6 @@ class IPXACTVisualizer:
             print(f"生成总线接口差异图时出错: {e}")
             return None
 
-    def generate_ad_hoc_connections_diff_diagram(
-        self, elements1, elements2, output_img="adhoc_conn_diff"
-    ):
-        """生成点对点连接差异图"""
-        try:
-            # 提取节点信息
-            nodes1 = {item["name"]: item for item in elements1["adhocconnection"]}
-            nodes2 = {item["name"]: item for item in elements2["adhocconnection"]}
-
-            # 创建图
-            dot = graphviz.Digraph(comment="Ad-hoc Connections Diff", engine="dot")
-            dot.attr(rankdir="TB", dpi="300")
-
-            # 添加节点
-            for name in set(nodes1.keys()) | set(nodes2.keys()):
-                if name in nodes1 and name in nodes2:
-                    if nodes1[name] != nodes2[name]:
-                        # 修改的节点
-                        refs1 = nodes1[name].get("internalPortReferences", [])
-                        refs2 = nodes2[name].get("internalPortReferences", [])
-                        if len(refs1) >= 2 and len(refs2) >= 2:
-                            label = f"{name}\n({refs1[0]['componentRef']}.{refs1[0]['portRef']} ↔ {refs1[1]['componentRef']}.{refs1[1]['portRef']})\n→\n({refs2[0]['componentRef']}.{refs2[0]['portRef']} ↔ {refs2[1]['componentRef']}.{refs2[1]['portRef']})"
-                            dot.node(
-                                name,
-                                label,
-                                shape="diamond",
-                                style="filled",
-                                fillcolor="orange",
-                            )
-                    else:
-                        # 未修改的节点
-                        refs = nodes1[name].get("internalPortReferences", [])
-                        if len(refs) >= 2:
-                            label = f"{name}\n({refs[0]['componentRef']}.{refs[0]['portRef']} ↔ {refs[1]['componentRef']}.{refs[1]['portRef']})"
-                            dot.node(
-                                name,
-                                label,
-                                shape="diamond",
-                                style="filled",
-                                fillcolor="lightgrey",
-                            )
-                elif name in nodes1:
-                    # 删除的节点
-                    refs = nodes1[name].get("internalPortReferences", [])
-                    if len(refs) >= 2:
-                        label = f"{name}\n({refs[0]['componentRef']}.{refs[0]['portRef']} ↔ {refs[1]['componentRef']}.{refs[1]['portRef']})"
-                        dot.node(
-                            name,
-                            label,
-                            shape="diamond",
-                            style="filled",
-                            fillcolor="red",
-                        )
-                else:
-                    # 新增的节点
-                    refs = nodes2[name].get("internalPortReferences", [])
-                    if len(refs) >= 2:
-                        label = f"{name}\n({refs[0]['componentRef']}.{refs[0]['portRef']} ↔ {refs[1]['componentRef']}.{refs[1]['portRef']})"
-                        dot.node(
-                            name,
-                            label,
-                            shape="diamond",
-                            style="filled",
-                            fillcolor="green",
-                        )
-
-            # 添加连接 - 按照连接名称的字母顺序连接
-            sorted_nodes = sorted(set(nodes1.keys()) | set(nodes2.keys()))
-            for i in range(len(sorted_nodes) - 1):
-                # 检查两个节点是否在同一个版本中存在
-                if (sorted_nodes[i] in nodes1 and sorted_nodes[i + 1] in nodes1) or (
-                    sorted_nodes[i] in nodes2 and sorted_nodes[i + 1] in nodes2
-                ):
-                    dot.edge(sorted_nodes[i], sorted_nodes[i + 1])
-
-            # 添加图例
-            # dot.node('legend', 'Legend:\nGreen: Added\nRed: Removed\nOrange: Modified\nGrey: Unchanged',
-            #         shape='box', style='filled', fillcolor='white')
-
-            dot.format = "png"
-            output_path = get_temp_filename("adhoc_conn_diff", "")
-            dot.render(output_path, cleanup=True)
-            img_path = output_path + ".png"
-            print(f"Generated ad-hoc connections diff diagram: {img_path}")
-
-            # 转换为base64
-            base64_str = image_to_base64(img_path)
-            # 清理临时文件
-            if os.path.exists(img_path):
-                os.remove(img_path)
-            return base64_str
-        except Exception as e:
-            print(f"Error generating ad-hoc connections diff diagram: {e}")
-            return None
-
     def generate_memory_map_diff_diagram(
         self, elements1, elements2, output_img="memory_map_diff"
     ):
@@ -822,31 +636,31 @@ class IPXACTVisualizer:
             mem_maps2 = {item["name"]: item for item in elements2["memorymap"]}
 
             dot = graphviz.Digraph(comment="Memory Map Diff", engine="dot")
-            dot.attr(rankdir="TB", dpi="300")
+            dot.attr(rankdir="TB", dpi="500", bgcolor="transparent")
 
             # 添加内存映射节点
             for name in set(mem_maps1.keys()) | set(mem_maps2.keys()):
                 if name in mem_maps1 and name in mem_maps2:
                     if mem_maps1[name] != mem_maps2[name]:
-                        # 修改的内存映射
+                        # 修改的内存映射 - 使用#ffffa6
                         dot.node(
-                            name, name, shape="box", style="filled", fillcolor="orange"
+                            name, name, shape="box", style="filled", fillcolor="#ffffa6"
                         )
                     else:
-                        # 未修改的内存映射
+                        # 未修改的内存映射 - 使用#ffffff
                         dot.node(
-                            name,
-                            name,
-                            shape="box",
-                            style="filled",
-                            fillcolor="lightgrey",
+                            name, name, shape="box", style="filled", fillcolor="#ffffff"
                         )
                 elif name in mem_maps1:
-                    # 删除的内存映射
-                    dot.node(name, name, shape="box", style="filled", fillcolor="red")
+                    # 删除的内存映射 - 使用#ffa6a6
+                    dot.node(
+                        name, name, shape="box", style="filled", fillcolor="#ffa6a6"
+                    )
                 else:
-                    # 新增的内存映射
-                    dot.node(name, name, shape="box", style="filled", fillcolor="green")
+                    # 新增的内存映射 - 使用#a6ffa6
+                    dot.node(
+                        name, name, shape="box", style="filled", fillcolor="#a6ffa6"
+                    )
 
                 # 添加地址块节点
                 if name in mem_maps1:
@@ -867,36 +681,45 @@ class IPXACTVisualizer:
                                 or block["range"] != block_in_v2["range"]
                                 or block["width"] != block_in_v2["width"]
                             ):
-                                # 修改的地址块
+                                # 修改的地址块 - 使用#ffffa6
                                 label = f"{block['name']}\nBase: {block['baseAddress']} → {block_in_v2['baseAddress']}\nRange: {block['range']} → {block_in_v2['range']}\nWidth: {block['width']} → {block_in_v2['width']}"
                                 dot.node(
                                     block_name,
                                     label,
                                     shape="box",
                                     style="filled",
-                                    fillcolor="orange",
+                                    fillcolor="#ffffa6",
+                                )
+                                # 未修改的连接 - 使用#000000
+                                dot.edge(
+                                    name, block_name, color="#000000", style="solid"
                                 )
                             else:
-                                # 未修改的地址块
+                                # 未修改的地址块 - 使用#ffffff
                                 label = f"{block['name']}\nBase: {block['baseAddress']}\nRange: {block['range']}\nWidth: {block['width']}"
                                 dot.node(
                                     block_name,
                                     label,
                                     shape="box",
                                     style="filled",
-                                    fillcolor="lightgrey",
+                                    fillcolor="#ffffff",
+                                )
+                                # 未修改的连接 - 使用#000000
+                                dot.edge(
+                                    name, block_name, color="#000000", style="solid"
                                 )
                         else:
-                            # 删除的地址块
+                            # 删除的地址块 - 使用#ffa6a6
                             label = f"{block['name']}\nBase: {block['baseAddress']}\nRange: {block['range']}\nWidth: {block['width']}"
                             dot.node(
                                 block_name,
                                 label,
                                 shape="box",
                                 style="filled",
-                                fillcolor="red",
+                                fillcolor="#ffa6a6",
                             )
-                        dot.edge(name, block_name)
+                            # 删除的连接 - 使用#ffa6a6
+                            dot.edge(name, block_name, color="#ffa6a6", style="solid")
 
                 if name in mem_maps2:
                     for block in mem_maps2[name].get("addressblocks", []):
@@ -910,20 +733,17 @@ class IPXACTVisualizer:
                                     break
 
                         if not block_in_v1:
-                            # 新增的地址块
+                            # 新增的地址块 - 使用#a6ffa6
                             label = f"{block['name']}\nBase: {block['baseAddress']}\nRange: {block['range']}\nWidth: {block['width']}"
                             dot.node(
                                 block_name,
                                 label,
                                 shape="box",
                                 style="filled",
-                                fillcolor="green",
+                                fillcolor="#a6ffa6",
                             )
-                            dot.edge(name, block_name)
-
-            # 添加图例
-            # dot.node('legend', 'Legend:\nGreen: Added\nRed: Removed\nOrange: Modified\nGrey: Unchanged',
-            #         shape='box', style='filled', fillcolor='white')
+                            # 新增的连接 - 使用#a6ffa6
+                            dot.edge(name, block_name, color="#a6ffa6", style="solid")
 
             dot.format = "png"
             output_path = get_temp_filename("memory_map_diff", "")
@@ -1076,12 +896,52 @@ class IPXACTVisualizer:
                     .modified {{ background-color: #ffffe6; }}
                     .summary {{ margin: 20px 0; padding: 10px; background-color: #f8f9fa; border-radius: 5px; }}
                     .summary-item {{ margin: 5px 0; }}
-                    .image-comparison {{ display: flex; justify-content: space-between; margin: 20px 0; }}
-                    .image-container {{ width: 48%; }}
-                    .image-container img {{ width: 100%; max-width: 600px; height: auto; }}
-                    .image-label {{ text-align: center; margin: 5px 0; }}
+                    .image-comparison {{ 
+                        display: flex; 
+                        justify-content: center; 
+                        align-items: center;
+                        gap: 2rem;
+                        margin: 20px 0; 
+                    }}
+                    .image-container {{ 
+                        display: flex;
+                        flex-direction: column;
+                        align-items: center;
+                        justify-content: center;
+                        height: 30rem;
+                        width: 40vw;
+                        border-radius: 8px;
+                        padding: 1rem;
+                    }}
+                    .image-container.v1 {{
+                        background-color: #e6f3ff;
+                    }}
+                    .image-container.v2 {{
+                        background-color: #f3e6ff;
+                    }}
+                    .image-container.diff {{
+                        background-color: #e0e7ff;
+                    }}
+                    .image-container img {{ 
+                        max-height: 28rem;
+                        max-width: 38vw;
+                        object-fit: contain;
+                    }}
+                    .image-label {{ 
+                        text-align: center; 
+                        margin: 5px 0;
+                        font-weight: bold;
+                        color: #333;
+                    }}
                     .content-section {{ margin: 20px; }}
-                    .diagram-section {{ margin-top: 20px; padding-top: 20px; border-top: 1px solid #ddd; }}
+                    .diagram-section {{ 
+                        margin-top: 20px; 
+                        padding-top: 20px; 
+                        border-top: 1px solid #ddd;
+                        display: flex;
+                        flex-direction: column;
+                        align-items: center;
+                    }}
                     .header {{ margin-bottom: 20px; }}
                 </style>
             </head>
@@ -1142,9 +1002,20 @@ class IPXACTVisualizer:
                 "memorymap",
                 "register",
             ]
+            sections_map = {
+                "component": "Component",
+                "componentinstance": "Component Instance",
+                "busdefinition": "Bus Definition",
+                "businterface": "Bus Interface",
+                "design": "Design",
+                "view": "View",
+                "addressspace": "Address Space",
+                "memorymap": "Memory Map",
+                "register": "Register",
+            }
             for section in sections:
                 html_content += f'<div class="section" id="{section}">'
-                html_content += f'<div class="section-title">{section.title()}</div>'
+                html_content += f'<div class="section-title">{sections_map[section]}</div>'
 
                 # 生成差异表格
                 html_content += self._generate_diff_table(section, elements1, elements2)
@@ -1158,14 +1029,14 @@ class IPXACTVisualizer:
                     html_content += '<div class="diagram-section">'
                     html_content += '<div class="section-title">Component Diagram</div>'
                     html_content += '<div class="image-comparison">'
-                    html_content += f'<div class="image-container"><div class="image-label">{base_name1}</div><img src="{results["component1"]}"></div>'
-                    html_content += f'<div class="image-container"><div class="image-label">{base_name2}</div><img src="{results["component2"]}"></div>'
+                    html_content += f'<div class="image-container v1"><div class="image-label">{base_name1}</div><img src="{results["component1"]}"></div>'
+                    html_content += f'<div class="image-container v2"><div class="image-label">{base_name2}</div><img src="{results["component2"]}"></div>'
                     html_content += "</div>"
                     if results.get("component_diff"):
                         html_content += (
                             '<div class="section-title">Component Differences</div>'
                         )
-                        html_content += f'<div class="image-container"><img src="{results["component_diff"]}"></div>'
+                        html_content += f'<div class="image-container diff"><img src="{results["component_diff"]}"></div>'
                     html_content += "</div>"
 
                 elif (
@@ -1178,12 +1049,12 @@ class IPXACTVisualizer:
                         '<div class="section-title">Component Instance Diagram</div>'
                     )
                     html_content += '<div class="image-comparison">'
-                    html_content += f'<div class="image-container"><div class="image-label">{base_name1}</div><img src="{results["componentinstance1"]}"></div>'
-                    html_content += f'<div class="image-container"><div class="image-label">{base_name2}</div><img src="{results["componentinstance2"]}"></div>'
+                    html_content += f'<div class="image-container v1"><div class="image-label">{base_name1}</div><img src="{results["componentinstance1"]}"></div>'
+                    html_content += f'<div class="image-container v2"><div class="image-label">{base_name2}</div><img src="{results["componentinstance2"]}"></div>'
                     html_content += "</div>"
                     if results.get("componentinstance_diff"):
                         html_content += '<div class="section-title">Component Instance Differences</div>'
-                        html_content += f'<div class="image-container"><img src="{results["componentinstance_diff"]}"></div>'
+                        html_content += f'<div class="image-container diff"><img src="{results["componentinstance_diff"]}"></div>'
                     html_content += "</div>"
 
                 elif (
@@ -1196,12 +1067,12 @@ class IPXACTVisualizer:
                         '<div class="section-title">Bus Definition Diagram</div>'
                     )
                     html_content += '<div class="image-comparison">'
-                    html_content += f'<div class="image-container"><div class="image-label">{base_name1}</div><img src="{results["busdefinition1"]}"></div>'
-                    html_content += f'<div class="image-container"><div class="image-label">{base_name2}</div><img src="{results["busdefinition2"]}"></div>'
+                    html_content += f'<div class="image-container v1"><div class="image-label">{base_name1}</div><img src="{results["busdefinition1"]}"></div>'
+                    html_content += f'<div class="image-container v2"><div class="image-label">{base_name2}</div><img src="{results["busdefinition2"]}"></div>'
                     html_content += "</div>"
                     if results.get("busdefinition_diff"):
                         html_content += '<div class="section-title">Bus Definition Differences</div>'
-                        html_content += f'<div class="image-container"><img src="{results["busdefinition_diff"]}"></div>'
+                        html_content += f'<div class="image-container diff"><img src="{results["busdefinition_diff"]}"></div>'
                     html_content += "</div>"
 
                 elif (
@@ -1214,14 +1085,14 @@ class IPXACTVisualizer:
                         '<div class="section-title">Bus Interface Diagram</div>'
                     )
                     html_content += '<div class="image-comparison">'
-                    html_content += f'<div class="image-container"><div class="image-label">{base_name1}</div><img src="{results["businterface1"]}"></div>'
-                    html_content += f'<div class="image-container"><div class="image-label">{base_name2}</div><img src="{results["businterface2"]}"></div>'
+                    html_content += f'<div class="image-container v1"><div class="image-label">{base_name1}</div><img src="{results["businterface1"]}"></div>'
+                    html_content += f'<div class="image-container v2"><div class="image-label">{base_name2}</div><img src="{results["businterface2"]}"></div>'
                     html_content += "</div>"
                     if results.get("businterface_diff"):
                         html_content += (
                             '<div class="section-title">Bus Interface Differences</div>'
                         )
-                        html_content += f'<div class="image-container"><img src="{results["businterface_diff"]}"></div>'
+                        html_content += f'<div class="image-container diff"><img src="{results["businterface_diff"]}"></div>'
                     html_content += "</div>"
 
                 elif (
@@ -1232,14 +1103,14 @@ class IPXACTVisualizer:
                     html_content += '<div class="diagram-section">'
                     html_content += '<div class="section-title">Design Diagram</div>'
                     html_content += '<div class="image-comparison">'
-                    html_content += f'<div class="image-container"><div class="image-label">{base_name1}</div><img src="{results["design1"]}"></div>'
-                    html_content += f'<div class="image-container"><div class="image-label">{base_name2}</div><img src="{results["design2"]}"></div>'
+                    html_content += f'<div class="image-container v1"><div class="image-label">{base_name1}</div><img src="{results["design1"]}"></div>'
+                    html_content += f'<div class="image-container v2"><div class="image-label">{base_name2}</div><img src="{results["design2"]}"></div>'
                     html_content += "</div>"
                     if results.get("design_diff"):
                         html_content += (
                             '<div class="section-title">Design Differences</div>'
                         )
-                        html_content += f'<div class="image-container"><img src="{results["design_diff"]}"></div>'
+                        html_content += f'<div class="image-container diff"><img src="{results["design_diff"]}"></div>'
                     html_content += "</div>"
 
                 elif (
@@ -1248,14 +1119,14 @@ class IPXACTVisualizer:
                     html_content += '<div class="diagram-section">'
                     html_content += '<div class="section-title">View Diagram</div>'
                     html_content += '<div class="image-comparison">'
-                    html_content += f'<div class="image-container"><div class="image-label">{base_name1}</div><img src="{results["view1"]}"></div>'
-                    html_content += f'<div class="image-container"><div class="image-label">{base_name2}</div><img src="{results["view2"]}"></div>'
+                    html_content += f'<div class="image-container v1"><div class="image-label">{base_name1}</div><img src="{results["view1"]}"></div>'
+                    html_content += f'<div class="image-container v2"><div class="image-label">{base_name2}</div><img src="{results["view2"]}"></div>'
                     html_content += "</div>"
                     if results.get("view_diff"):
                         html_content += (
                             '<div class="section-title">View Differences</div>'
                         )
-                        html_content += f'<div class="image-container"><img src="{results["view_diff"]}"></div>'
+                        html_content += f'<div class="image-container diff"><img src="{results["view_diff"]}"></div>'
                     html_content += "</div>"
 
                 elif (
@@ -1268,14 +1139,14 @@ class IPXACTVisualizer:
                         '<div class="section-title">Address Space Diagram</div>'
                     )
                     html_content += '<div class="image-comparison">'
-                    html_content += f'<div class="image-container"><div class="image-label">{base_name1}</div><img src="{results["addressspace1"]}"></div>'
-                    html_content += f'<div class="image-container"><div class="image-label">{base_name2}</div><img src="{results["addressspace2"]}"></div>'
+                    html_content += f'<div class="image-container v1"><div class="image-label">{base_name1}</div><img src="{results["addressspace1"]}"></div>'
+                    html_content += f'<div class="image-container v2"><div class="image-label">{base_name2}</div><img src="{results["addressspace2"]}"></div>'
                     html_content += "</div>"
                     if results.get("addressspace_diff"):
                         html_content += (
                             '<div class="section-title">Address Space Differences</div>'
                         )
-                        html_content += f'<div class="image-container"><img src="{results["addressspace_diff"]}"></div>'
+                        html_content += f'<div class="image-container diff"><img src="{results["addressspace_diff"]}"></div>'
                     html_content += "</div>"
 
                 elif (
@@ -1286,14 +1157,14 @@ class IPXACTVisualizer:
                     html_content += '<div class="diagram-section">'
                     html_content += '<div class="section-title">Register Diagram</div>'
                     html_content += '<div class="image-comparison">'
-                    html_content += f'<div class="image-container"><div class="image-label">{base_name1}</div><img src="{results["register1"]}"></div>'
-                    html_content += f'<div class="image-container"><div class="image-label">{base_name2}</div><img src="{results["register2"]}"></div>'
+                    html_content += f'<div class="image-container v1"><div class="image-label">{base_name1}</div><img src="{results["register1"]}"></div>'
+                    html_content += f'<div class="image-container v2"><div class="image-label">{base_name2}</div><img src="{results["register2"]}"></div>'
                     html_content += "</div>"
                     if results.get("register_diff"):
                         html_content += (
                             '<div class="section-title">Register Differences</div>'
                         )
-                        html_content += f'<div class="image-container"><img src="{results["register_diff"]}"></div>'
+                        html_content += f'<div class="image-container diff"><img src="{results["register_diff"]}"></div>'
                     html_content += "</div>"
 
                 elif (
@@ -1306,14 +1177,14 @@ class IPXACTVisualizer:
                         '<div class="section-title">Memory Map Diagram</div>'
                     )
                     html_content += '<div class="image-comparison">'
-                    html_content += f'<div class="image-container"><div class="image-label">{base_name1}</div><img src="{results["memorymap1"]}"></div>'
-                    html_content += f'<div class="image-container"><div class="image-label">{base_name2}</div><img src="{results["memorymap2"]}"></div>'
+                    html_content += f'<div class="image-container v1"><div class="image-label">{base_name1}</div><img src="{results["memorymap1"]}"></div>'
+                    html_content += f'<div class="image-container v2"><div class="image-label">{base_name2}</div><img src="{results["memorymap2"]}"></div>'
                     html_content += "</div>"
                     if results.get("memorymap_diff"):
                         html_content += (
                             '<div class="section-title">Memory Map Differences</div>'
                         )
-                        html_content += f'<div class="image-container"><img src="{results["memorymap_diff"]}"></div>'
+                        html_content += f'<div class="image-container diff"><img src="{results["memorymap_diff"]}"></div>'
                     html_content += "</div>"
 
                 html_content += "</div>"
@@ -1352,7 +1223,7 @@ class IPXACTVisualizer:
                 return None
 
             dot = graphviz.Digraph(comment="Component Instances", engine="dot")
-            dot.attr(rankdir="TB", dpi="300")
+            dot.attr(rankdir="TB", dpi="500", bgcolor="transparent")
             # 添加组件节点
             for name, type_name in components:
                 dot.node(
@@ -1392,7 +1263,6 @@ class IPXACTVisualizer:
             print(f"Error generating component instances diagram: {e}")
             return None
 
-
     def generate_bus_interfaces_diagram(self, output_img="bus_interfaces"):
         """生成总线接口图"""
         try:
@@ -1402,7 +1272,9 @@ class IPXACTVisualizer:
                 name = intf.findtext("spirit:name", default="N/A", namespaces=self.ns)
                 bus_type = intf.find("spirit:busType", self.ns)
                 bus_type_name = (
-                    bus_type.get(f"{{{self.ns['spirit']}}}name") if bus_type is not None else "N/A"
+                    bus_type.get(f"{{{self.ns['spirit']}}}name")
+                    if bus_type is not None
+                    else "N/A"
                 )
                 mode = (
                     "master"
@@ -1415,7 +1287,7 @@ class IPXACTVisualizer:
                 return None
 
             dot = graphviz.Digraph(comment="Bus Interfaces", engine="dot")
-            dot.attr(rankdir="TB", dpi="300", bgcolor="white")  # 设置白色背景
+            dot.attr(rankdir="TB", dpi="500", bgcolor="transparent")
 
             # 添加接口节点
             for name, bus_type, mode in interfaces:
@@ -1452,7 +1324,6 @@ class IPXACTVisualizer:
             print(f"生成总线接口图时出错: {e}")
             return None
 
-    def generate_ad_hoc_connections_diagram(self, elements=None):
         """生成Ad-hoc连接关系图"""
         if elements is None:
             # 如果没有传入elements，从当前XML文件中提取
@@ -1538,13 +1409,13 @@ class IPXACTVisualizer:
                 return None
 
             dot = graphviz.Digraph(comment="Memory Map", engine="dot")
-            dot.attr(rankdir="TB", dpi="300")
+            dot.attr(rankdir="TB", dpi="500", bgcolor="transparent")
 
             # 添加内存映射节点
             for mm in memory_maps:
                 mm_name = mm["name"]
                 dot.node(
-                    mm_name, mm_name, shape="box", style="filled", fillcolor="lightgrey"
+                    mm_name, mm_name, shape="box", style="filled", fillcolor="#ffffff"
                 )
 
                 # 添加地址块节点
@@ -1552,17 +1423,10 @@ class IPXACTVisualizer:
                     ab_name = f"{mm_name}_{ab['name']}"
                     label = f"{ab['name']}\nBase: {ab['baseAddress']}\nRange: {ab['range']}\nWidth: {ab['width']}"
                     dot.node(
-                        ab_name,
-                        label,
-                        shape="box",
-                        style="filled",
-                        fillcolor="lightblue",
+                        ab_name, label, shape="box", style="filled", fillcolor="#ffffff"
                     )
-                    dot.edge(mm_name, ab_name)
-
-            # 添加图例
-            # dot.node('legend', 'Legend:\nGrey: Memory Map\nBlue: Address Block',
-            #         shape='box', style='filled', fillcolor='white')
+                    # 添加黑色实线连接
+                    dot.edge(mm_name, ab_name, color="#000000", style="solid")
 
             dot.format = "png"
             output_path = get_temp_filename("memory_map", "")
@@ -1642,7 +1506,7 @@ class IPXACTVisualizer:
                 ports.append((port_name, port_type))
 
             dot = graphviz.Digraph(comment="Component", engine="dot")
-            dot.attr(rankdir="TB", dpi="300")
+            dot.attr(rankdir="TB", dpi="500", bgcolor="transparent")
 
             # 添加组件节点
             component_label = f"{name}\nVersion: {version}\nVendor: {vendor}"
@@ -1722,7 +1586,7 @@ class IPXACTVisualizer:
 
             # 创建图
             dot = graphviz.Digraph(comment="Bus Definitions", engine="dot")
-            dot.attr(rankdir="TB", dpi="300")
+            dot.attr(rankdir="TB", dpi="500", bgcolor="transparent")
 
             # 添加总线定义节点
             for name, version in bus_defs:
@@ -1775,7 +1639,9 @@ class IPXACTVisualizer:
                 name = ci.findtext("spirit:name", default="N/A", namespaces=self.ns)
                 type_elem = ci.find("spirit:componentRef", self.ns)
                 type_name = (
-                    type_elem.get(f"{{{self.ns['spirit']}}}name") if type_elem is not None else "N/A"
+                    type_elem.get(f"{{{self.ns['spirit']}}}name")
+                    if type_elem is not None
+                    else "N/A"
                 )
                 instances.append((name, type_name))
 
@@ -1802,7 +1668,7 @@ class IPXACTVisualizer:
                         connections.append((comp1, comp2, "ad-hoc"))
 
             dot = graphviz.Digraph(comment="Design", engine="dot")
-            dot.attr(rankdir="TB", dpi="300", bgcolor="white")
+            dot.attr(rankdir="TB", dpi="500", bgcolor="transparent")
 
             # 添加设计节点
             dot.node(
@@ -1810,7 +1676,7 @@ class IPXACTVisualizer:
                 f"{design_name}\nVersion: {design_version}",
                 shape="box",
                 style="filled",
-                fillcolor="white"
+                fillcolor="white",
             )
 
             # 添加组件实例节点
@@ -1821,7 +1687,7 @@ class IPXACTVisualizer:
                         f"{name}\n({type_name})",
                         shape="box",
                         style="filled",
-                        fillcolor="white"
+                        fillcolor="white",
                     )
 
             # 添加design到instance的连线
@@ -1865,7 +1731,7 @@ class IPXACTVisualizer:
                 return None
 
             dot = graphviz.Digraph(comment="Views", engine="dot")
-            dot.attr(rankdir="TB", dpi="300")
+            dot.attr(rankdir="TB", dpi="500", bgcolor="transparent")
 
             # 添加视图节点
             for name, env in views:
@@ -1912,22 +1778,21 @@ class IPXACTVisualizer:
                 return None
 
             dot = graphviz.Digraph(comment="Address Spaces", engine="dot")
-            dot.attr(rankdir="TB", dpi="300", bgcolor="white")
+            dot.attr(rankdir="TB", dpi="500", bgcolor="transparent")
 
             # 添加地址空间节点
             for name, range_val, width_val in addr_spaces:
                 label = f"{name}\nRange: {range_val}\nWidth: {width_val}"
-                dot.node(
-                    name, 
-                    label, 
-                    shape="box", 
-                    style="filled", 
-                    fillcolor="#ffffff"
-                )
+                dot.node(name, label, shape="box", style="filled", fillcolor="#ffffff")
 
             # 添加连接线
             for i in range(len(addr_spaces) - 1):
-                dot.edge(addr_spaces[i][0], addr_spaces[i + 1][0], color="#000000", style="solid")
+                dot.edge(
+                    addr_spaces[i][0],
+                    addr_spaces[i + 1][0],
+                    color="#000000",
+                    style="solid",
+                )
 
             dot.format = "png"
             output_path = get_temp_filename("address_space", "")
@@ -1981,14 +1846,14 @@ class IPXACTVisualizer:
                 return None
 
             dot = graphviz.Digraph(comment="Registers", engine="dot")
-            dot.attr(rankdir="TB", dpi="300")
+            dot.attr(rankdir="TB", dpi="500", bgcolor="transparent")
 
             # 添加寄存器节点
             for name, offset, size, access, fields in registers:
                 # 创建寄存器节点
                 reg_label = f"{name}\nOffset: {offset}\nSize: {size}\nAccess: {access}"
                 dot.node(
-                    name, reg_label, shape="box", style="filled", fillcolor="lightblue"
+                    name, reg_label, shape="box", style="filled", fillcolor="#ffffff"
                 )
 
                 # 添加字段节点
@@ -2000,9 +1865,10 @@ class IPXACTVisualizer:
                         field_label,
                         shape="box",
                         style="filled",
-                        fillcolor="lightgreen",
+                        fillcolor="#ffffff",
                     )
-                    dot.edge(name, field_id)
+                    # 添加黑色实线连接
+                    dot.edge(name, field_id, color="#000000", style="solid")
 
             dot.format = "png"
             output_path = get_temp_filename("register", "")
@@ -2017,7 +1883,9 @@ class IPXACTVisualizer:
             print(f"Error generating register diagram: {e}")
             return None
 
-    def generate_design_diff_diagram(self, elements1, elements2, output_img="design_diff"):
+    def generate_design_diff_diagram(
+        self, elements1, elements2, output_img="design_diff"
+    ):
         """生成设计差异图"""
         try:
             # 提取设计信息
@@ -2026,7 +1894,7 @@ class IPXACTVisualizer:
 
             # 创建图
             dot = graphviz.Digraph(comment="Design Differences", engine="dot")
-            dot.attr(rankdir="TB", dpi="300", bgcolor="white")
+            dot.attr(rankdir="TB", dpi="500", bgcolor="transparent")
 
             # 提取组件实例
             instances1 = {}
@@ -2047,7 +1915,11 @@ class IPXACTVisualizer:
                     # 修改的节点
                     label = f"{design1.get('name', 'N/A')}\nVersion: {design1.get('version', 'N/A')} → {design2.get('version', 'N/A')}"
                     dot.node(
-                        "design", label, shape="box", style="filled", fillcolor="#ffffa6"
+                        "design",
+                        label,
+                        shape="box",
+                        style="filled",
+                        fillcolor="#ffffa6",
                     )
                 else:
                     # 未修改的节点
@@ -2057,12 +1929,14 @@ class IPXACTVisualizer:
                         label,
                         shape="box",
                         style="filled",
-                        fillcolor="#ffffff"
+                        fillcolor="#ffffff",
                     )
             elif design1:
                 # 删除的节点
                 label = f"{design1.get('name', 'N/A')}\nVersion: {design1.get('version', 'N/A')}"
-                dot.node("design", label, shape="box", style="filled", fillcolor="#ffa6a6")
+                dot.node(
+                    "design", label, shape="box", style="filled", fillcolor="#ffa6a6"
+                )
             elif design2:
                 # 新增的节点
                 label = f"{design2.get('name', 'N/A')}\nVersion: {design2.get('version', 'N/A')}"
@@ -2075,44 +1949,44 @@ class IPXACTVisualizer:
                 if name in instances1 and name in instances2:
                     if instances1[name] != instances2[name]:
                         # 修改的节点
-                        comp_ref1 = instances1[name].get('componentRef', 'N/A')
-                        comp_ref2 = instances2[name].get('componentRef', 'N/A')
+                        comp_ref1 = instances1[name].get("componentRef", "N/A")
+                        comp_ref2 = instances2[name].get("componentRef", "N/A")
                         dot.node(
                             name,
                             f"{name}\n({comp_ref1} → {comp_ref2})",
                             shape="box",
                             style="filled",
-                            fillcolor="#ffffa6"
+                            fillcolor="#ffffa6",
                         )
                     else:
                         # 未修改的节点
-                        comp_ref = instances1[name].get('componentRef', 'N/A')
+                        comp_ref = instances1[name].get("componentRef", "N/A")
                         dot.node(
                             name,
                             f"{name}\n({comp_ref})",
                             shape="box",
                             style="filled",
-                            fillcolor="#ffffff"
+                            fillcolor="#ffffff",
                         )
                 elif name in instances1:
                     # 删除的节点
-                    comp_ref = instances1[name].get('componentRef', 'N/A')
+                    comp_ref = instances1[name].get("componentRef", "N/A")
                     dot.node(
                         name,
                         f"{name}\n({comp_ref})",
                         shape="box",
                         style="filled",
-                        fillcolor="#ffa6a6"
+                        fillcolor="#ffa6a6",
                     )
                 else:
                     # 新增的节点
-                    comp_ref = instances2[name].get('componentRef', 'N/A')
+                    comp_ref = instances2[name].get("componentRef", "N/A")
                     dot.node(
                         name,
                         f"{name}\n({comp_ref})",
                         shape="box",
                         style="filled",
-                        fillcolor="#a6ffa6"
+                        fillcolor="#a6ffa6",
                     )
 
                 # 添加与设计的连接
@@ -2148,7 +2022,7 @@ class IPXACTVisualizer:
 
             # 创建图
             dot = graphviz.Digraph(comment="View Differences", engine="dot")
-            dot.attr(rankdir="TB", dpi="300", bgcolor="white")
+            dot.attr(rankdir="TB", dpi="500", bgcolor="transparent")
 
             # 添加视图节点
             for name in set(views1.keys()) | set(views2.keys()):
@@ -2160,7 +2034,7 @@ class IPXACTVisualizer:
                             f"{name}\n({views1[name].get('envIdentifier', 'N/A')} → {views2[name].get('envIdentifier', 'N/A')})",
                             shape="box",
                             style="filled",
-                            fillcolor="#ffffa6"
+                            fillcolor="#ffffa6",
                         )
                     else:
                         # 未修改的节点 - 使用#ffffff
@@ -2169,7 +2043,7 @@ class IPXACTVisualizer:
                             f"{name}\n({views1[name].get('envIdentifier', 'N/A')})",
                             shape="box",
                             style="filled",
-                            fillcolor="#ffffff"
+                            fillcolor="#ffffff",
                         )
                 elif name in views1:
                     # 删除的节点 - 使用#ffa6a6
@@ -2178,7 +2052,7 @@ class IPXACTVisualizer:
                         f"{name}\n({views1[name].get('envIdentifier', 'N/A')})",
                         shape="box",
                         style="filled",
-                        fillcolor="#ffa6a6"
+                        fillcolor="#ffa6a6",
                     )
                 else:
                     # 新增的节点 - 使用#a6ffa6
@@ -2187,7 +2061,7 @@ class IPXACTVisualizer:
                         f"{name}\n({views2[name].get('envIdentifier', 'N/A')})",
                         shape="box",
                         style="filled",
-                        fillcolor="#a6ffa6"
+                        fillcolor="#a6ffa6",
                     )
 
             # 添加连接 - 按照视图名称的字母顺序连接
@@ -2195,7 +2069,7 @@ class IPXACTVisualizer:
             for i in range(len(sorted_nodes) - 1):
                 node1 = sorted_nodes[i]
                 node2 = sorted_nodes[i + 1]
-                
+
                 # 检查两个节点是否在同一个版本中存在
                 if node1 in views1 and node2 in views1:
                     if node1 in views2 and node2 in views2:
@@ -2232,7 +2106,7 @@ class IPXACTVisualizer:
 
             # 创建图
             dot = graphviz.Digraph(comment="Address Space Differences", engine="dot")
-            dot.attr(rankdir="TB", dpi="300", bgcolor="white")
+            dot.attr(rankdir="TB", dpi="500", bgcolor="transparent")
 
             # 添加地址空间节点
             for name in set(spaces1.keys()) | set(spaces2.keys()):
@@ -2241,11 +2115,11 @@ class IPXACTVisualizer:
                         # 修改的节点 - 使用#ffffa6
                         label = f"{name}\nRange: {spaces1[name].get('range', 'N/A')} → {spaces2[name].get('range', 'N/A')}\nWidth: {spaces1[name].get('width', 'N/A')} → {spaces2[name].get('width', 'N/A')}"
                         dot.node(
-                            name, 
-                            label, 
-                            shape="box", 
-                            style="filled", 
-                            fillcolor="#ffffa6"
+                            name,
+                            label,
+                            shape="box",
+                            style="filled",
+                            fillcolor="#ffffa6",
                         )
                     else:
                         # 未修改的节点 - 使用#ffffff
@@ -2255,27 +2129,19 @@ class IPXACTVisualizer:
                             label,
                             shape="box",
                             style="filled",
-                            fillcolor="#ffffff"
+                            fillcolor="#ffffff",
                         )
                 elif name in spaces1:
                     # 删除的节点 - 使用#ffa6a6
                     label = f"{name}\nRange: {spaces1[name].get('range', 'N/A')}\nWidth: {spaces1[name].get('width', 'N/A')}"
                     dot.node(
-                        name, 
-                        label, 
-                        shape="box", 
-                        style="filled", 
-                        fillcolor="#ffa6a6"
+                        name, label, shape="box", style="filled", fillcolor="#ffa6a6"
                     )
                 else:
                     # 新增的节点 - 使用#a6ffa6
                     label = f"{name}\nRange: {spaces2[name].get('range', 'N/A')}\nWidth: {spaces2[name].get('width', 'N/A')}"
                     dot.node(
-                        name, 
-                        label, 
-                        shape="box", 
-                        style="filled", 
-                        fillcolor="#a6ffa6"
+                        name, label, shape="box", style="filled", fillcolor="#a6ffa6"
                     )
 
                 # 添加地址块节点
@@ -2303,7 +2169,11 @@ class IPXACTVisualizer:
                                     label,
                                     shape="box",
                                     style="filled",
-                                    fillcolor="#ffffa6"
+                                    fillcolor="#ffffa6",
+                                )
+                                # 未修改的连接 - 使用#000000
+                                dot.edge(
+                                    name, block_name, color="#000000", style="solid"
                                 )
                             else:
                                 # 未修改的地址块 - 使用#ffffff
@@ -2313,7 +2183,11 @@ class IPXACTVisualizer:
                                     label,
                                     shape="box",
                                     style="filled",
-                                    fillcolor="#ffffff"
+                                    fillcolor="#ffffff",
+                                )
+                                # 未修改的连接 - 使用#000000
+                                dot.edge(
+                                    name, block_name, color="#000000", style="solid"
                                 )
                         else:
                             # 删除的地址块 - 使用#ffa6a6
@@ -2323,15 +2197,10 @@ class IPXACTVisualizer:
                                 label,
                                 shape="box",
                                 style="filled",
-                                fillcolor="#ffa6a6"
+                                fillcolor="#ffa6a6",
                             )
-                        # 添加连接线
-                        if block_in_v2:
-                            # 未修改的连接 - 使用#000000
-                            dot.edge(name, block_name, color="#000000")
-                        else:
                             # 删除的连接 - 使用#ffa6a6
-                            dot.edge(name, block_name, color="#ffa6a6")
+                            dot.edge(name, block_name, color="#ffa6a6", style="solid")
 
                 if name in spaces2:
                     for block in spaces2[name].get("addressblocks", []):
@@ -2352,10 +2221,10 @@ class IPXACTVisualizer:
                                 label,
                                 shape="box",
                                 style="filled",
-                                fillcolor="#a6ffa6"
+                                fillcolor="#a6ffa6",
                             )
                             # 新增的连接 - 使用#a6ffa6
-                            dot.edge(name, block_name, color="#a6ffa6")
+                            dot.edge(name, block_name, color="#a6ffa6", style="solid")
 
             dot.format = "png"
             output_path = get_temp_filename("address_space_diff", "")
@@ -2381,36 +2250,42 @@ class IPXACTVisualizer:
 
             # 创建图
             dot = graphviz.Digraph(comment="Register Differences", engine="dot")
-            dot.attr(rankdir="TB", dpi="300")
+            dot.attr(rankdir="TB", dpi="500", bgcolor="transparent")
 
             # 添加寄存器节点
             for name in set(registers1.keys()) | set(registers2.keys()):
                 if name in registers1 and name in registers2:
                     if registers1[name] != registers2[name]:
-                        # 修改的节点
+                        # 修改的节点 - 使用#ffffa6
                         label = f"{name}\nOffset: {registers1[name].get('address', 'N/A')} → {registers2[name].get('address', 'N/A')}\nSize: {registers1[name].get('size', 'N/A')} → {registers2[name].get('size', 'N/A')}\nAccess: {registers1[name].get('access', 'N/A')} → {registers2[name].get('access', 'N/A')}"
                         dot.node(
-                            name, label, shape="box", style="filled", fillcolor="orange"
+                            name,
+                            label,
+                            shape="box",
+                            style="filled",
+                            fillcolor="#ffffa6",
                         )
                     else:
-                        # 未修改的节点
+                        # 未修改的节点 - 使用#ffffff
                         label = f"{name}\nOffset: {registers1[name].get('address', 'N/A')}\nSize: {registers1[name].get('size', 'N/A')}\nAccess: {registers1[name].get('access', 'N/A')}"
                         dot.node(
                             name,
                             label,
                             shape="box",
                             style="filled",
-                            fillcolor="lightgrey",
+                            fillcolor="#ffffff",
                         )
                 elif name in registers1:
-                    # 删除的节点
+                    # 删除的节点 - 使用#ffa6a6
                     label = f"{name}\nOffset: {registers1[name].get('address', 'N/A')}\nSize: {registers1[name].get('size', 'N/A')}\nAccess: {registers1[name].get('access', 'N/A')}"
-                    dot.node(name, label, shape="box", style="filled", fillcolor="red")
+                    dot.node(
+                        name, label, shape="box", style="filled", fillcolor="#ffa6a6"
+                    )
                 else:
-                    # 新增的节点
+                    # 新增的节点 - 使用#a6ffa6
                     label = f"{name}\nOffset: {registers2[name].get('address', 'N/A')}\nSize: {registers2[name].get('size', 'N/A')}\nAccess: {registers2[name].get('access', 'N/A')}"
                     dot.node(
-                        name, label, shape="box", style="filled", fillcolor="green"
+                        name, label, shape="box", style="filled", fillcolor="#a6ffa6"
                     )
 
                 # 添加字段节点
@@ -2428,37 +2303,45 @@ class IPXACTVisualizer:
                         if field_in_v2:
                             # 检查是否有变化
                             if field != field_in_v2:
-                                # 修改的字段
+                                # 修改的字段 - 使用#ffffa6
                                 label = f"{field['name']}\nBits: {field.get('bitOffset', 'N/A')} → {field_in_v2.get('bitOffset', 'N/A')}\nWidth: {field.get('bitWidth', 'N/A')} → {field_in_v2.get('bitWidth', 'N/A')}\nAccess: {field.get('access', 'N/A')} → {field_in_v2.get('access', 'N/A')}"
                                 dot.node(
                                     field_name,
                                     label,
                                     shape="box",
                                     style="filled",
-                                    fillcolor="orange",
+                                    fillcolor="#ffffa6",
+                                )
+                                # 未修改的连接 - 使用#000000
+                                dot.edge(
+                                    name, field_name, color="#000000", style="solid"
                                 )
                             else:
-                                # 未修改的字段
+                                # 未修改的字段 - 使用#ffffff
                                 label = f"{field['name']}\nBits: {field.get('bitOffset', 'N/A')}\nWidth: {field.get('bitWidth', 'N/A')}\nAccess: {field.get('access', 'N/A')}"
                                 dot.node(
                                     field_name,
                                     label,
                                     shape="box",
                                     style="filled",
-                                    fillcolor="lightgrey",
+                                    fillcolor="#ffffff",
+                                )
+                                # 未修改的连接 - 使用#000000
+                                dot.edge(
+                                    name, field_name, color="#000000", style="solid"
                                 )
                         else:
-                            # 删除的字段
+                            # 删除的字段 - 使用#ffa6a6
                             label = f"{field['name']}\nBits: {field.get('bitOffset', 'N/A')}\nWidth: {field.get('bitWidth', 'N/A')}\nAccess: {field.get('access', 'N/A')}"
                             dot.node(
                                 field_name,
                                 label,
                                 shape="box",
                                 style="filled",
-                                fillcolor="red",
+                                fillcolor="#ffa6a6",
                             )
-                        # 添加从寄存器到字段的连接
-                        dot.edge(name, field_name)
+                            # 删除的连接 - 使用#ffa6a6
+                            dot.edge(name, field_name, color="#ffa6a6", style="solid")
 
                 if name in registers2:
                     for field in registers2[name].get("fields", []):
@@ -2472,21 +2355,17 @@ class IPXACTVisualizer:
                                     break
 
                         if not field_in_v1:
-                            # 新增的字段
+                            # 新增的字段 - 使用#a6ffa6
                             label = f"{field['name']}\nBits: {field.get('bitOffset', 'N/A')}\nWidth: {field.get('bitWidth', 'N/A')}\nAccess: {field.get('access', 'N/A')}"
                             dot.node(
                                 field_name,
                                 label,
                                 shape="box",
                                 style="filled",
-                                fillcolor="green",
+                                fillcolor="#a6ffa6",
                             )
-                            # 添加从寄存器到字段的连接
-                            dot.edge(name, field_name)
-
-            # 添加图例
-            # dot.node('legend', 'Legend:\nGreen: Added\nRed: Removed\nOrange: Modified\nGrey: Unchanged',
-            #         shape='box', style='filled', fillcolor='white')
+                            # 新增的连接 - 使用#a6ffa6
+                            dot.edge(name, field_name, color="#a6ffa6", style="solid")
 
             dot.format = "png"
             output_path = get_temp_filename("register_diff", "")
@@ -2511,7 +2390,7 @@ class IPXACTVisualizer:
             comp2 = elements2.get("component", [{}])[0]
 
             dot = graphviz.Digraph(comment="Component Differences", engine="dot")
-            dot.attr(rankdir="TB", dpi="300")
+            dot.attr(rankdir="TB", dpi="500", bgcolor="transparent")
 
             # 添加组件节点
             if comp1:
@@ -2686,7 +2565,7 @@ class IPXACTVisualizer:
 
             # 创建图
             dot = graphviz.Digraph(comment="Bus Definition Differences", engine="dot")
-            dot.attr(rankdir="TB", dpi="300")
+            dot.attr(rankdir="TB", dpi="500", bgcolor="transparent")
 
             # 添加节点
             for name in set(nodes1.keys()) | set(nodes2.keys()):
