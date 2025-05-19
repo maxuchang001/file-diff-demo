@@ -294,14 +294,16 @@ class IPXACTVisualizer:
             for ci in design.findall(".//spirit:componentInstance", ns):
                 ci_data = {
                     "name": ci.findtext("spirit:name", default="N/A", namespaces=ns),
-                    "componentRef": ci.find("spirit:componentRef", ns).get(
-                        "spirit:name"
-                    )
-                    if ci.find("spirit:componentRef", ns) is not None
-                    else "N/A",
-                    "version": ci.find("spirit:componentRef", ns).get("spirit:version")
-                    if ci.find("spirit:componentRef", ns) is not None
-                    else "N/A",
+                    "componentRef": (
+                        ci.find("spirit:componentRef", ns).get(f"{{{ns['spirit']}}}name")
+                        if ci.find("spirit:componentRef", ns) is not None
+                        else "N/A"
+                    ),
+                    "version": (
+                        ci.find("spirit:componentRef", ns).get(f"{{{ns['spirit']}}}version")
+                        if ci.find("spirit:componentRef", ns) is not None
+                        else "N/A"
+                    ),
                 }
                 design_data["componentinstances"].append(ci_data)
 
@@ -320,12 +322,14 @@ class IPXACTVisualizer:
             )
         # busInterfaces
         for intf in root.findall(".//spirit:busInterface", ns):
+            bus_type = intf.find("spirit:busType", ns)
+            bus_type_name = (
+                bus_type.get(f"{{{ns['spirit']}}}name") if bus_type is not None else "N/A"
+            )
             elements["businterface"].append(
                 {
                     "name": intf.findtext("spirit:name", default="N/A", namespaces=ns),
-                    "type": intf.find("spirit:busType", ns).get("spirit:name")
-                    if intf.find("spirit:busType", ns) is not None
-                    else "N/A",
+                    "type": bus_type_name,
                     "mode": "master"
                     if intf.find("spirit:master", ns) is not None
                     else "slave",
@@ -401,14 +405,16 @@ class IPXACTVisualizer:
             )
         # componentInstances
         for inst in root.findall(".//spirit:componentInstance", ns):
+            type_elem = inst.find("spirit:componentRef", ns)
+            type_name = (
+                type_elem.get(f"{{{ns['spirit']}}}name")
+                if type_elem is not None
+                else "N/A"
+            )
             elements["componentinstance"].append(
                 {
                     "name": inst.findtext("spirit:name", default="N/A", namespaces=ns),
-                    "componentRef": inst.find("spirit:componentRef", ns).get(
-                        "spirit:name"
-                    )
-                    if inst.find("spirit:componentRef", ns) is not None
-                    else "N/A",
+                    "componentRef": type_name,
                 }
             )
         # adhocConnections
@@ -419,8 +425,8 @@ class IPXACTVisualizer:
             }
             for ref in conn.findall(".//spirit:internalPortReference", ns):
                 ref_data = {
-                    "componentRef": ref.get("spirit:componentRef", "N/A"),
-                    "portRef": ref.get("spirit:portRef", "N/A"),
+                    "componentRef": ref.get(f"{{{ns['spirit']}}}componentRef", "N/A"),
+                    "portRef": ref.get(f"{{{ns['spirit']}}}portRef", "N/A"),
                 }
                 conn_data["internalPortReferences"].append(ref_data)
             elements["adhocconnection"].append(conn_data)
@@ -460,60 +466,98 @@ class IPXACTVisualizer:
             for name in set(nodes1.keys()) | set(nodes2.keys()):
                 if name in nodes1 and name in nodes2:
                     if nodes1[name] != nodes2[name]:
-                        # 修改的节点
+                        # 修改的节点 - 使用#ffffa6
                         dot.node(
                             name,
                             f"{name}\n({nodes1[name]['componentRef']} → {nodes2[name]['componentRef']})",
                             shape="box",
                             style="filled",
-                            fillcolor="orange",
+                            fillcolor="#ffffa6",
                         )
                     else:
-                        # 未修改的节点
+                        # 未修改的节点 - 使用#ffffff
                         dot.node(
                             name,
                             f"{name}\n({nodes1[name]['componentRef']})",
                             shape="box",
                             style="filled",
-                            fillcolor="lightgrey",
+                            fillcolor="#ffffff",
                         )
                 elif name in nodes1:
-                    # 删除的节点
+                    # 删除的节点 - 使用#ffa6a6
                     dot.node(
                         name,
                         f"{name}\n({nodes1[name]['componentRef']})",
                         shape="box",
                         style="filled",
-                        fillcolor="red",
+                        fillcolor="#ffa6a6",
                     )
                 else:
-                    # 新增的节点
+                    # 新增的节点 - 使用#a6ffa6
                     dot.node(
                         name,
                         f"{name}\n({nodes2[name]['componentRef']})",
                         shape="box",
                         style="filled",
-                        fillcolor="green",
+                        fillcolor="#a6ffa6",
                     )
 
-            # 添加连接 - 修改连接逻辑
-            # 1. 首先添加在两个版本中都存在的连接
-            common_nodes = sorted(set(nodes1.keys()) & set(nodes2.keys()))
-            for i in range(len(common_nodes) - 1):
-                dot.edge(common_nodes[i], common_nodes[i + 1])
+            # 提取连接关系
+            connections1 = set()
+            connections2 = set()
+
+            # 从第一个XML中提取连接
+            for conn in self.root.findall(".//spirit:adHocConnection", self.ns):
+                refs = conn.findall("spirit:internalPortReference", self.ns)
+                if len(refs) >= 2:
+                    comp1 = refs[0].get(f"{{{self.ns['spirit']}}}componentRef")
+                    comp2 = refs[1].get(f"{{{self.ns['spirit']}}}componentRef")
+                    if comp1 and comp2 and comp1 in nodes1 and comp2 in nodes1:
+                        # 保持原始连接方向
+                        connections1.add((comp1, comp2))
+
+            # 使用elements2中的连接信息
+            for conn in elements2.get("adhocconnection", []):
+                refs = conn.get("internalPortReferences", [])
+                if len(refs) >= 2:
+                    comp1 = refs[0].get("componentRef")
+                    comp2 = refs[1].get("componentRef")
+                    if comp1 and comp2 and comp1 in nodes2 and comp2 in nodes2:
+                        # 保持原始连接方向
+                        connections2.add((comp1, comp2))
+
+            # 添加连接
+            # 1. 添加在两个版本中都存在的连接
+            common_connections = connections1 & connections2
+            for comp1, comp2 in common_connections:
+                dot.edge(comp1, comp2, color="#ffffff", style="solid")
+
             # 2. 添加只在新版本中存在的连接
-            new_nodes = sorted(set(nodes2.keys()) - set(nodes1.keys()))
-            for i in range(len(new_nodes) - 1):
-                dot.edge(new_nodes[i], new_nodes[i + 1])
+            new_connections = connections2 - connections1
+            for comp1, comp2 in new_connections:
+                dot.edge(comp1, comp2, color="#a6ffa6", style="solid")
+
             # 3. 添加只在旧版本中存在的连接
-            old_nodes = sorted(set(nodes1.keys()) - set(nodes2.keys()))
-            for i in range(len(old_nodes) - 1):
-                dot.edge(old_nodes[i], old_nodes[i + 1])
-            # 4. 添加新旧版本之间的连接
-            if common_nodes and new_nodes:
-                dot.edge(common_nodes[-1], new_nodes[0])
-            # 添加图例
-            # dot.node('legend', 'Legend:\nGreen: Added\nRed: Removed\nOrange: Modified\nGrey: Unchanged', shape='box', style='filled', fillcolor='white')
+            old_connections = connections1 - connections2
+            for comp1, comp2 in old_connections:
+                dot.edge(comp1, comp2, color="#ffa6a6", style="solid")
+
+            # 4. 添加被删除节点与其他节点的连接
+            # 只处理那些不在old_connections中的连接
+            for old_node in set(nodes1.keys()) - set(nodes2.keys()):
+                for common_node in set(nodes1.keys()) & set(nodes2.keys()):
+                    # 检查是否存在连接，考虑两个方向
+                    if (old_node, common_node) in connections1 and (
+                        old_node,
+                        common_node,
+                    ) not in old_connections:
+                        dot.edge(old_node, common_node, style="solid", color="#ffa6a6")
+                    elif (common_node, old_node) in connections1 and (
+                        common_node,
+                        old_node,
+                    ) not in old_connections:
+                        dot.edge(common_node, old_node, style="solid", color="#ffa6a6")
+
             dot.format = "png"
             output_path = os.path.splitext(output_img)[0]
             dot.render(output_path, cleanup=True)
@@ -526,102 +570,151 @@ class IPXACTVisualizer:
             print(f"Error generating component instances diff diagram: {e}")
             return None
 
-    def generate_bus_interfaces_diff_diagram(
-        self, elements1, elements2, output_img="bus_intf_diff"
-    ):
+    def generate_bus_interfaces_diff_diagram(self, elements1, elements2, output_img="bus_intf_diff"):
         """生成总线接口差异图"""
         try:
             # 提取节点信息
-            nodes1 = {item["name"]: item for item in elements1["businterface"]}
-            nodes2 = {item["name"]: item for item in elements2["businterface"]}
+            interfaces1 = []
+            interfaces2 = []
+            
+            # 从第一个XML中提取接口信息
+            for intf in self.root.findall(".//spirit:busInterface", self.ns):
+                name = intf.findtext("spirit:name", default="N/A", namespaces=self.ns)
+                bus_type = intf.find("spirit:busType", self.ns)
+                bus_type_name = (
+                    bus_type.get(f"{{{self.ns['spirit']}}}name") if bus_type is not None else "N/A"
+                )
+                mode = (
+                    "master"
+                    if intf.find("spirit:master", self.ns) is not None
+                    else "slave"
+                )
+                interfaces1.append((name, bus_type_name, mode))
+
+            # 从第二个XML中提取接口信息
+            for intf in elements2.get("businterface", []):
+                name = intf.get("name", "N/A")
+                # 修正：使用正确的字段名获取总线类型
+                bus_type = intf.get("type", "N/A")
+                if bus_type == "N/A":
+                    # 如果type字段为空，尝试从busType字段获取
+                    bus_type = intf.get("busType", "N/A")
+                mode = intf.get("mode", "N/A")
+                interfaces2.append((name, bus_type, mode))
 
             # 创建图
             dot = graphviz.Digraph(comment="Bus Interfaces Diff", engine="dot")
-            dot.attr(rankdir="LR", dpi="300")
+            dot.attr(rankdir="TB", dpi="300", bgcolor="white")
 
             # 添加节点
-            for name in set(nodes1.keys()) | set(nodes2.keys()):
-                if name in nodes1 and name in nodes2:
-                    if nodes1[name] != nodes2[name]:
-                        # 修改的节点
-                        dot.node(
-                            name,
-                            f"{name}\n({nodes1[name]['type']} → {nodes2[name]['type']})\n{nodes1[name]['mode']} → {nodes2[name]['mode']}",
-                            shape="box",
-                            style="filled",
-                            fillcolor="orange",
-                        )
-                    else:
-                        # 未修改的节点
-                        dot.node(
-                            name,
-                            f"{name}\n({nodes1[name]['type']})\n{nodes1[name]['mode']}",
-                            shape="box",
-                            style="filled",
-                            fillcolor="lightgrey",
-                        )
-                elif name in nodes1:
-                    # 删除的节点
+            for name, bus_type, mode in interfaces1:
+                # 检查节点是否在第二个版本中存在
+                found_in_v2 = False
+                changed = False
+                for name2, bus_type2, mode2 in interfaces2:
+                    if name == name2:
+                        found_in_v2 = True
+                        if bus_type != bus_type2 or mode != mode2:
+                            changed = True
+                        break
+
+                if not found_in_v2:
+                    # 删除的节点 - 红色
                     dot.node(
                         name,
-                        f"{name}\n({nodes1[name]['type']})\n{nodes1[name]['mode']}",
+                        f"{name}\n({bus_type})\n{mode}",
                         shape="box",
                         style="filled",
-                        fillcolor="red",
+                        fillcolor="#ffa6a6"
+                    )
+                elif changed:
+                    # 修改的节点 - 黄色
+                    dot.node(
+                        name,
+                        f"{name}\n({bus_type})\n{mode}",
+                        shape="box",
+                        style="filled",
+                        fillcolor="#ffffa6"
                     )
                 else:
-                    # 新增的节点
+                    # 未修改的节点 - 白色
                     dot.node(
                         name,
-                        f"{name}\n({nodes2[name]['type']})\n{nodes2[name]['mode']}",
+                        f"{name}\n({bus_type})\n{mode}",
                         shape="box",
                         style="filled",
-                        fillcolor="green",
+                        fillcolor="#ffffff"
                     )
 
-            # 添加连接 - 修改连接逻辑
-            # 1. 首先添加在两个版本中都存在的连接
-            common_nodes = sorted(set(nodes1.keys()) & set(nodes2.keys()))
-            for i in range(len(common_nodes) - 1):
-                dot.edge(common_nodes[i], common_nodes[i + 1])
+            # 添加第二个版本中的新节点
+            for name, bus_type, mode in interfaces2:
+                found_in_v1 = False
+                for name1, _, _ in interfaces1:
+                    if name == name1:
+                        found_in_v1 = True
+                        break
+                
+                if not found_in_v1:
+                    # 新增的节点 - 绿色
+                    dot.node(
+                        name,
+                        f"{name}\n({bus_type})\n{mode}",
+                        shape="box",
+                        style="filled",
+                        fillcolor="#a6ffa6"
+                    )
 
-            # 2. 添加只在新版本中存在的连接
-            new_nodes = sorted(set(nodes2.keys()) - set(nodes1.keys()))
-            for i in range(len(new_nodes) - 1):
-                dot.edge(new_nodes[i], new_nodes[i + 1])
+            # 添加连接
+            # 1. 处理第一个版本中的连接
+            for i, (name1, bus_type1, mode1) in enumerate(interfaces1):
+                for j, (name2, bus_type2, mode2) in enumerate(interfaces1):
+                    if i != j and mode1 == "master" and mode2 == "slave":
+                        # 检查连接是否在第二个版本中存在
+                        found_in_v2 = False
+                        for k, (name3, bus_type3, mode3) in enumerate(interfaces2):
+                            for l, (name4, bus_type4, mode4) in enumerate(interfaces2):
+                                if k != l and name1 == name3 and name2 == name4 and mode3 == "master" and mode4 == "slave":
+                                    found_in_v2 = True
+                                    break
+                            if found_in_v2:
+                                break
+                        
+                        if found_in_v2:
+                            # 未修改的连接 - 白色
+                            dot.edge(name1, name2, color="#ffffff")
+                        else:
+                            # 删除的连接 - 红色
+                            dot.edge(name1, name2, color="#ffa6a6")
 
-            # 3. 添加只在旧版本中存在的连接
-            old_nodes = sorted(set(nodes1.keys()) - set(nodes2.keys()))
-            for i in range(len(old_nodes) - 1):
-                dot.edge(old_nodes[i], old_nodes[i + 1])
-
-            # 4. 添加新旧版本之间的连接
-            if common_nodes and new_nodes:
-                dot.edge(common_nodes[-1], new_nodes[0])
-
-            # 5. 添加被删除节点与其他节点的连接
-            for old_node in old_nodes:
-                for common_node in common_nodes:
-                    dot.edge(old_node, common_node, style="dashed", color="red")
-
-            # 添加图例
-            # dot.node('legend', 'Legend:\nGreen: Added\nRed: Removed\nOrange: Modified\nGrey: Unchanged\nDashed Red: Deleted Connections',
-            #         shape='box', style='filled', fillcolor='white')
+            # 2. 处理第二个版本中的新连接
+            for i, (name1, bus_type1, mode1) in enumerate(interfaces2):
+                for j, (name2, bus_type2, mode2) in enumerate(interfaces2):
+                    if i != j and mode1 == "master" and mode2 == "slave":
+                        # 检查连接是否在第一个版本中存在
+                        found_in_v1 = False
+                        for k, (name3, bus_type3, mode3) in enumerate(interfaces1):
+                            for l, (name4, bus_type4, mode4) in enumerate(interfaces1):
+                                if k != l and name1 == name3 and name2 == name4 and mode3 == "master" and mode4 == "slave":
+                                    found_in_v1 = True
+                                    break
+                            if found_in_v1:
+                                break
+                        
+                        if not found_in_v1:
+                            # 新增的连接 - 绿色
+                            dot.edge(name1, name2, color="#a6ffa6")
 
             dot.format = "png"
-            output_path = os.path.splitext(output_img)[0]
+            output_path = get_temp_filename("bus_intf_diff", "")
             dot.render(output_path, cleanup=True)
             img_path = output_path + ".png"
-            print(f"Generated bus interfaces diff diagram: {img_path}")
 
-            # 转换为base64
             base64_str = image_to_base64(img_path)
-            # 清理临时文件
             if os.path.exists(img_path):
                 os.remove(img_path)
             return base64_str
         except Exception as e:
-            print(f"Error generating bus interfaces diff diagram: {e}")
+            print(f"生成总线接口差异图时出错: {e}")
             return None
 
     def generate_ad_hoc_connections_diff_diagram(
@@ -1262,7 +1355,13 @@ class IPXACTVisualizer:
             dot.attr(rankdir="TB", dpi="300")
             # 添加组件节点
             for name, type_name in components:
-                dot.node(name, f"{name}\n({type_name})", shape="box")
+                dot.node(
+                    name,
+                    f"{name}\n({type_name})",
+                    shape="box",
+                    style="filled",
+                    fillcolor="#ffffff",
+                )
 
             # 查找ad-hoc连接，收集唯一连接对
             connections = set()
@@ -1277,10 +1376,9 @@ class IPXACTVisualizer:
                     )
                     if comp1 and comp2:
                         connections.add((comp1, comp2))
-
             # 添加连接线
             for comp1, comp2 in connections:
-                dot.edge(comp1, comp2, dir="forward")
+                dot.edge(comp1, comp2, color="#000000", style="solid")
 
             dot.format = "png"
             output_path = get_temp_filename("component_instances", "")
@@ -1294,25 +1392,6 @@ class IPXACTVisualizer:
             print(f"Error generating component instances diagram: {e}")
             return None
 
-    def _generate_bus_interface_diagram(self, elements1, elements2):
-        """生成总线接口和连接关系图"""
-        diagram = []
-
-        # 添加总线接口节点
-        interfaces = {}
-        for intf in elements1.get("businterface", []):
-            intf_name = intf.get("name", "N/A").lower()  # 统一使用小写
-            interfaces[intf_name] = intf
-            diagram.append(f'    {intf_name}["{intf.get("name", "N/A")}"]')
-
-        # 添加连接关系
-        for conn in elements1.get("interconnection", []):
-            active = conn.get("activeInterface", "N/A").lower()  # 统一使用小写
-            hier = conn.get("hierInterface", "N/A").lower()  # 统一使用小写
-            if active in interfaces and hier in interfaces:
-                diagram.append(f"    {active} --> {hier}")
-
-        return "\n".join(diagram)
 
     def generate_bus_interfaces_diagram(self, output_img="bus_interfaces"):
         """生成总线接口图"""
@@ -1323,7 +1402,7 @@ class IPXACTVisualizer:
                 name = intf.findtext("spirit:name", default="N/A", namespaces=self.ns)
                 bus_type = intf.find("spirit:busType", self.ns)
                 bus_type_name = (
-                    bus_type.get("spirit:name") if bus_type is not None else "N/A"
+                    bus_type.get(f"{{{self.ns['spirit']}}}name") if bus_type is not None else "N/A"
                 )
                 mode = (
                     "master"
@@ -1333,41 +1412,35 @@ class IPXACTVisualizer:
                 interfaces.append((name, bus_type_name, mode))
 
             if not interfaces:
-                print("No bus interfaces found")
                 return None
 
             dot = graphviz.Digraph(comment="Bus Interfaces", engine="dot")
-            dot.attr(rankdir="LR", dpi="300")
+            dot.attr(rankdir="TB", dpi="300", bgcolor="white")  # 设置白色背景
 
             # 添加接口节点
             for name, bus_type, mode in interfaces:
-                color = "lightblue" if mode == "master" else "lightgreen"
                 dot.node(
                     name,
                     f"{name}\n({bus_type})\n{mode}",
                     shape="box",
                     style="filled",
-                    fillcolor=color,
+                    fillcolor="white",  # 使用白色背景
                 )
 
-            # 添加连接 - 参考差异图的连接逻辑
-            # 1. 按照名称排序所有接口
-            sorted_interfaces = sorted(interfaces, key=lambda x: x[0])
-
-            # 2. 添加相邻接口之间的连接
-            for i in range(len(sorted_interfaces) - 1):
-                dot.edge(sorted_interfaces[i][0], sorted_interfaces[i + 1][0])
-
-            # 添加图例
-            # dot.node('legend', 'Legend:\nBlue: Master\nGreen: Slave\nSolid: Sequential Connection',
-            #         shape='box', style='filled', fillcolor='white')
+            # 添加连接
+            # 只建立从master到slave的单向连接
+            for i, (name1, bus_type1, mode1) in enumerate(interfaces):
+                for j, (name2, bus_type2, mode2) in enumerate(interfaces):
+                    if i != j:  # 避免自连接
+                        # 只建立从master到slave的连接
+                        if mode1 == "master" and mode2 == "slave":
+                            dot.edge(name1, name2, color="#000000")
 
             dot.format = "png"
             # 使用临时文件名
             output_path = get_temp_filename("bus_interfaces", "")
             dot.render(output_path, cleanup=True)
             img_path = output_path + ".png"
-            print(f"Generated bus interfaces diagram: {img_path}")
 
             # 转换为base64
             base64_str = image_to_base64(img_path)
@@ -1376,7 +1449,7 @@ class IPXACTVisualizer:
                 os.remove(img_path)
             return base64_str
         except Exception as e:
-            print(f"Error generating bus interfaces diagram: {e}")
+            print(f"生成总线接口图时出错: {e}")
             return None
 
     def generate_ad_hoc_connections_diagram(self, elements=None):
@@ -1631,9 +1704,23 @@ class IPXACTVisualizer:
                 bus_defs.append((name, version))
 
             if not bus_defs:
-                print("No bus definitions found")
                 return None
 
+            # 提取总线接口信息
+            bus_interfaces = []
+            for intf in self.root.findall(".//spirit:busInterface", self.ns):
+                bus_type = intf.find("spirit:busType", self.ns)
+                if bus_type is not None:
+                    bus_name = bus_type.get("spirit:name")
+                    if bus_name:  # 确保bus_name不为None
+                        # 检查是否是主设备
+                        is_master = intf.find("spirit:master", self.ns) is not None
+                        intf_name = intf.findtext(
+                            "spirit:name", default="N/A", namespaces=self.ns
+                        )
+                        bus_interfaces.append((intf_name, bus_name, is_master))
+
+            # 创建图
             dot = graphviz.Digraph(comment="Bus Definitions", engine="dot")
             dot.attr(rankdir="TB", dpi="300")
 
@@ -1644,21 +1731,14 @@ class IPXACTVisualizer:
                     f"{name}\nVersion: {version}",
                     shape="box",
                     style="filled",
-                    fillcolor="lightgreen",
+                    fillcolor="#ffffff",
                 )
 
-            # 添加连接 - 参考差异图的连接逻辑
-            # 1. 按照名称排序所有总线定义
-            sorted_bus_defs = sorted(bus_defs, key=lambda x: x[0])
+            # 添加一个测试连接
+            if len(bus_defs) >= 2:
+                dot.edge(bus_defs[0][0], bus_defs[1][0], color="#000000", style="solid")
 
-            # 2. 添加相邻总线定义之间的连接
-            for i in range(len(sorted_bus_defs) - 1):
-                dot.edge(sorted_bus_defs[i][0], sorted_bus_defs[i + 1][0])
-
-            # 添加图例
-            # dot.node('legend', 'Legend:\nGreen: Bus Definition\nSolid: Sequential Connection',
-            #         shape='box', style='filled', fillcolor='white')
-
+            # 生成图片
             dot.format = "png"
             output_path = get_temp_filename("bus_definition", "")
             dot.render(output_path, cleanup=True)
@@ -1695,7 +1775,7 @@ class IPXACTVisualizer:
                 name = ci.findtext("spirit:name", default="N/A", namespaces=self.ns)
                 type_elem = ci.find("spirit:componentRef", self.ns)
                 type_name = (
-                    type_elem.get("spirit:name") if type_elem is not None else "N/A"
+                    type_elem.get(f"{{{self.ns['spirit']}}}name") if type_elem is not None else "N/A"
                 )
                 instances.append((name, type_name))
 
@@ -1716,13 +1796,13 @@ class IPXACTVisualizer:
             for conn in design.findall(".//spirit:adHocConnection", self.ns):
                 refs = conn.findall("spirit:internalPortReference", self.ns)
                 if len(refs) >= 2:
-                    comp1 = refs[0].get("spirit:componentRef", "N/A")
-                    comp2 = refs[1].get("spirit:componentRef", "N/A")
+                    comp1 = refs[0].get(f"{{{self.ns['spirit']}}}componentRef", "N/A")
+                    comp2 = refs[1].get(f"{{{self.ns['spirit']}}}componentRef", "N/A")
                     if comp1 != "N/A" and comp2 != "N/A":
                         connections.append((comp1, comp2, "ad-hoc"))
 
             dot = graphviz.Digraph(comment="Design", engine="dot")
-            dot.attr(rankdir="TB", dpi="300")
+            dot.attr(rankdir="TB", dpi="300", bgcolor="white")
 
             # 添加设计节点
             dot.node(
@@ -1730,7 +1810,7 @@ class IPXACTVisualizer:
                 f"{design_name}\nVersion: {design_version}",
                 shape="box",
                 style="filled",
-                fillcolor="lightblue",
+                fillcolor="white"
             )
 
             # 添加组件实例节点
@@ -1741,7 +1821,7 @@ class IPXACTVisualizer:
                         f"{name}\n({type_name})",
                         shape="box",
                         style="filled",
-                        fillcolor="lightgreen",
+                        fillcolor="white"
                     )
 
             # 添加design到instance的连线
@@ -1751,13 +1831,9 @@ class IPXACTVisualizer:
             # 添加连接关系
             for comp1, comp2, conn_type in connections:
                 if conn_type == "bus":
-                    dot.edge(comp1, comp2, label="bus", style="solid", color="blue")
+                    dot.edge(comp1, comp2, label="bus", style="solid", color="black")
                 else:  # ad-hoc
-                    dot.edge(comp1, comp2, label="ad-hoc", style="dashed", color="red")
-
-            # 添加图例
-            # dot.node('legend', 'Legend:\nBlue: Design\nGreen: Component Instance\nBlue Line: Bus Connection\nRed Dashed Line: Ad-hoc Connection',
-            #         shape='box', style='filled', fillcolor='white')
+                    dot.edge(comp1, comp2, label="ad-hoc", style="solid", color="black")
 
             dot.format = "png"
             output_path = get_temp_filename("design", "")
@@ -1798,12 +1874,12 @@ class IPXACTVisualizer:
                     f"{name}\n({env})",
                     shape="box",
                     style="filled",
-                    fillcolor="lightyellow",
+                    fillcolor="white",
                 )
 
             # 添加视图之间的连接
             for i in range(len(views) - 1):
-                dot.edge(views[i][0], views[i + 1][0])
+                dot.edge(views[i][0], views[i + 1][0], color="black", style="solid")
 
             dot.format = "png"
             output_path = get_temp_filename("view", "")
@@ -1836,14 +1912,22 @@ class IPXACTVisualizer:
                 return None
 
             dot = graphviz.Digraph(comment="Address Spaces", engine="dot")
-            dot.attr(rankdir="TB", dpi="300")
+            dot.attr(rankdir="TB", dpi="300", bgcolor="white")
 
             # 添加地址空间节点
             for name, range_val, width_val in addr_spaces:
                 label = f"{name}\nRange: {range_val}\nWidth: {width_val}"
                 dot.node(
-                    name, label, shape="box", style="filled", fillcolor="lightblue"
+                    name, 
+                    label, 
+                    shape="box", 
+                    style="filled", 
+                    fillcolor="#ffffff"
                 )
+
+            # 添加连接线
+            for i in range(len(addr_spaces) - 1):
+                dot.edge(addr_spaces[i][0], addr_spaces[i + 1][0], color="#000000", style="solid")
 
             dot.format = "png"
             output_path = get_temp_filename("address_space", "")
@@ -1933,9 +2017,7 @@ class IPXACTVisualizer:
             print(f"Error generating register diagram: {e}")
             return None
 
-    def generate_design_diff_diagram(
-        self, elements1, elements2, output_img="design_diff"
-    ):
+    def generate_design_diff_diagram(self, elements1, elements2, output_img="design_diff"):
         """生成设计差异图"""
         try:
             # 提取设计信息
@@ -1944,15 +2026,20 @@ class IPXACTVisualizer:
 
             # 创建图
             dot = graphviz.Digraph(comment="Design Differences", engine="dot")
-            dot.attr(rankdir="TB", dpi="300")
+            dot.attr(rankdir="TB", dpi="300", bgcolor="white")
 
             # 提取组件实例
-            instances1 = {
-                inst["name"]: inst for inst in design1.get("componentinstances", [])
-            }
-            instances2 = {
-                inst["name"]: inst for inst in design2.get("componentinstances", [])
-            }
+            instances1 = {}
+            for inst in design1.get("componentinstances", []):
+                name = inst.get("name", "N/A")
+                type_elem = inst.get("componentRef", "N/A")
+                instances1[name] = {"name": name, "componentRef": type_elem}
+
+            instances2 = {}
+            for inst in design2.get("componentinstances", []):
+                name = inst.get("name", "N/A")
+                type_elem = inst.get("componentRef", "N/A")
+                instances2[name] = {"name": name, "componentRef": type_elem}
 
             # 添加设计节点
             if design1 and design2:
@@ -1960,7 +2047,7 @@ class IPXACTVisualizer:
                     # 修改的节点
                     label = f"{design1.get('name', 'N/A')}\nVersion: {design1.get('version', 'N/A')} → {design2.get('version', 'N/A')}"
                     dot.node(
-                        "design", label, shape="box", style="filled", fillcolor="orange"
+                        "design", label, shape="box", style="filled", fillcolor="#ffffa6"
                     )
                 else:
                     # 未修改的节点
@@ -1970,17 +2057,17 @@ class IPXACTVisualizer:
                         label,
                         shape="box",
                         style="filled",
-                        fillcolor="lightgrey",
+                        fillcolor="#ffffff"
                     )
             elif design1:
                 # 删除的节点
                 label = f"{design1.get('name', 'N/A')}\nVersion: {design1.get('version', 'N/A')}"
-                dot.node("design", label, shape="box", style="filled", fillcolor="red")
+                dot.node("design", label, shape="box", style="filled", fillcolor="#ffa6a6")
             elif design2:
                 # 新增的节点
                 label = f"{design2.get('name', 'N/A')}\nVersion: {design2.get('version', 'N/A')}"
                 dot.node(
-                    "design", label, shape="box", style="filled", fillcolor="green"
+                    "design", label, shape="box", style="filled", fillcolor="#a6ffa6"
                 )
 
             # 添加组件实例节点
@@ -1988,48 +2075,56 @@ class IPXACTVisualizer:
                 if name in instances1 and name in instances2:
                     if instances1[name] != instances2[name]:
                         # 修改的节点
+                        comp_ref1 = instances1[name].get('componentRef', 'N/A')
+                        comp_ref2 = instances2[name].get('componentRef', 'N/A')
                         dot.node(
                             name,
-                            f"{name}\n({instances1[name].get('componentRef', 'N/A')} → {instances2[name].get('componentRef', 'N/A')})",
+                            f"{name}\n({comp_ref1} → {comp_ref2})",
                             shape="box",
                             style="filled",
-                            fillcolor="orange",
+                            fillcolor="#ffffa6"
                         )
                     else:
                         # 未修改的节点
+                        comp_ref = instances1[name].get('componentRef', 'N/A')
                         dot.node(
                             name,
-                            f"{name}\n({instances1[name].get('componentRef', 'N/A')})",
+                            f"{name}\n({comp_ref})",
                             shape="box",
                             style="filled",
-                            fillcolor="lightgrey",
+                            fillcolor="#ffffff"
                         )
                 elif name in instances1:
                     # 删除的节点
+                    comp_ref = instances1[name].get('componentRef', 'N/A')
                     dot.node(
                         name,
-                        f"{name}\n({instances1[name].get('componentRef', 'N/A')})",
+                        f"{name}\n({comp_ref})",
                         shape="box",
                         style="filled",
-                        fillcolor="red",
+                        fillcolor="#ffa6a6"
                     )
                 else:
                     # 新增的节点
+                    comp_ref = instances2[name].get('componentRef', 'N/A')
                     dot.node(
                         name,
-                        f"{name}\n({instances2[name].get('componentRef', 'N/A')})",
+                        f"{name}\n({comp_ref})",
                         shape="box",
                         style="filled",
-                        fillcolor="green",
+                        fillcolor="#a6ffa6"
                     )
 
                 # 添加与设计的连接
-                if name in instances1 or name in instances2:
-                    dot.edge("design", name)
-
-            # 添加图例
-            # dot.node('legend', 'Legend:\nGreen: Added\nRed: Removed\nOrange: Modified\nGrey: Unchanged\nBlue Line: Bus Connection\nRed Dashed Line: Ad-hoc Connection',
-            #         shape='box', style='filled', fillcolor='white')
+                if name in instances1 and name in instances2:
+                    # 未修改的连接
+                    dot.edge("design", name, color="black")
+                elif name in instances1:
+                    # 删除的连接
+                    dot.edge("design", name, color="#ffa6a6")
+                else:
+                    # 新增的连接
+                    dot.edge("design", name, color="#a6ffa6")
 
             dot.format = "png"
             output_path = get_temp_filename("design_diff", "")
@@ -2053,60 +2148,65 @@ class IPXACTVisualizer:
 
             # 创建图
             dot = graphviz.Digraph(comment="View Differences", engine="dot")
-            dot.attr(rankdir="TB", dpi="300")
+            dot.attr(rankdir="TB", dpi="300", bgcolor="white")
 
             # 添加视图节点
             for name in set(views1.keys()) | set(views2.keys()):
                 if name in views1 and name in views2:
                     if views1[name] != views2[name]:
-                        # 修改的节点
+                        # 修改的节点 - 使用#ffffa6
                         dot.node(
                             name,
                             f"{name}\n({views1[name].get('envIdentifier', 'N/A')} → {views2[name].get('envIdentifier', 'N/A')})",
                             shape="box",
                             style="filled",
-                            fillcolor="orange",
+                            fillcolor="#ffffa6"
                         )
                     else:
-                        # 未修改的节点
+                        # 未修改的节点 - 使用#ffffff
                         dot.node(
                             name,
                             f"{name}\n({views1[name].get('envIdentifier', 'N/A')})",
                             shape="box",
                             style="filled",
-                            fillcolor="lightgrey",
+                            fillcolor="#ffffff"
                         )
                 elif name in views1:
-                    # 删除的节点
+                    # 删除的节点 - 使用#ffa6a6
                     dot.node(
                         name,
                         f"{name}\n({views1[name].get('envIdentifier', 'N/A')})",
                         shape="box",
                         style="filled",
-                        fillcolor="red",
+                        fillcolor="#ffa6a6"
                     )
                 else:
-                    # 新增的节点
+                    # 新增的节点 - 使用#a6ffa6
                     dot.node(
                         name,
                         f"{name}\n({views2[name].get('envIdentifier', 'N/A')})",
                         shape="box",
                         style="filled",
-                        fillcolor="green",
+                        fillcolor="#a6ffa6"
                     )
 
             # 添加连接 - 按照视图名称的字母顺序连接
             sorted_nodes = sorted(set(views1.keys()) | set(views2.keys()))
             for i in range(len(sorted_nodes) - 1):
+                node1 = sorted_nodes[i]
+                node2 = sorted_nodes[i + 1]
+                
                 # 检查两个节点是否在同一个版本中存在
-                if (sorted_nodes[i] in views1 and sorted_nodes[i + 1] in views1) or (
-                    sorted_nodes[i] in views2 and sorted_nodes[i + 1] in views2
-                ):
-                    dot.edge(sorted_nodes[i], sorted_nodes[i + 1])
-
-            # 添加图例
-            # dot.node('legend', 'Legend:\nGreen: Added\nRed: Removed\nOrange: Modified\nGrey: Unchanged',
-            #         shape='box', style='filled', fillcolor='white')
+                if node1 in views1 and node2 in views1:
+                    if node1 in views2 and node2 in views2:
+                        # 两个版本中都存在的连接 - 使用#000000
+                        dot.edge(node1, node2, color="#000000")
+                    else:
+                        # 只在第一个版本中存在的连接 - 使用#ffa6a6
+                        dot.edge(node1, node2, color="#ffa6a6")
+                elif node1 in views2 and node2 in views2:
+                    # 只在第二个版本中存在的连接 - 使用#a6ffa6
+                    dot.edge(node1, node2, color="#a6ffa6")
 
             dot.format = "png"
             output_path = get_temp_filename("view_diff", "")
@@ -2132,36 +2232,50 @@ class IPXACTVisualizer:
 
             # 创建图
             dot = graphviz.Digraph(comment="Address Space Differences", engine="dot")
-            dot.attr(rankdir="TB", dpi="300")
+            dot.attr(rankdir="TB", dpi="300", bgcolor="white")
 
             # 添加地址空间节点
             for name in set(spaces1.keys()) | set(spaces2.keys()):
                 if name in spaces1 and name in spaces2:
                     if spaces1[name] != spaces2[name]:
-                        # 修改的节点
+                        # 修改的节点 - 使用#ffffa6
                         label = f"{name}\nRange: {spaces1[name].get('range', 'N/A')} → {spaces2[name].get('range', 'N/A')}\nWidth: {spaces1[name].get('width', 'N/A')} → {spaces2[name].get('width', 'N/A')}"
                         dot.node(
-                            name, label, shape="box", style="filled", fillcolor="orange"
+                            name, 
+                            label, 
+                            shape="box", 
+                            style="filled", 
+                            fillcolor="#ffffa6"
                         )
                     else:
-                        # 未修改的节点
+                        # 未修改的节点 - 使用#ffffff
                         label = f"{name}\nRange: {spaces1[name].get('range', 'N/A')}\nWidth: {spaces1[name].get('width', 'N/A')}"
                         dot.node(
                             name,
                             label,
                             shape="box",
                             style="filled",
-                            fillcolor="lightgrey",
+                            fillcolor="#ffffff"
                         )
                 elif name in spaces1:
-                    # 删除的节点
+                    # 删除的节点 - 使用#ffa6a6
                     label = f"{name}\nRange: {spaces1[name].get('range', 'N/A')}\nWidth: {spaces1[name].get('width', 'N/A')}"
-                    dot.node(name, label, shape="box", style="filled", fillcolor="red")
+                    dot.node(
+                        name, 
+                        label, 
+                        shape="box", 
+                        style="filled", 
+                        fillcolor="#ffa6a6"
+                    )
                 else:
-                    # 新增的节点
+                    # 新增的节点 - 使用#a6ffa6
                     label = f"{name}\nRange: {spaces2[name].get('range', 'N/A')}\nWidth: {spaces2[name].get('width', 'N/A')}"
                     dot.node(
-                        name, label, shape="box", style="filled", fillcolor="green"
+                        name, 
+                        label, 
+                        shape="box", 
+                        style="filled", 
+                        fillcolor="#a6ffa6"
                     )
 
                 # 添加地址块节点
@@ -2182,36 +2296,42 @@ class IPXACTVisualizer:
                                 block["baseAddress"] != block_in_v2["baseAddress"]
                                 or block["range"] != block_in_v2["range"]
                             ):
-                                # 修改的地址块
-                                label = f"{block['name']}\nBase: {block['baseAddress']} → {block_in_v2['baseAddress']}\nRange: {block['range']} → {block_in_v2['range']}"
+                                # 修改的地址块 - 使用#ffffa6
+                                label = f"{block['name']}\nBase: {block['baseAddress']} → {block_in_v2['baseAddress']}\nRange: {block['range']} → {block_in_v2['range']}\nWidth: {block['width']} → {block_in_v2['width']}"
                                 dot.node(
                                     block_name,
                                     label,
                                     shape="box",
                                     style="filled",
-                                    fillcolor="orange",
+                                    fillcolor="#ffffa6"
                                 )
                             else:
-                                # 未修改的地址块
-                                label = f"{block['name']}\nBase: {block['baseAddress']}\nRange: {block['range']}"
+                                # 未修改的地址块 - 使用#ffffff
+                                label = f"{block['name']}\nBase: {block['baseAddress']}\nRange: {block['range']}\nWidth: {block['width']}"
                                 dot.node(
                                     block_name,
                                     label,
                                     shape="box",
                                     style="filled",
-                                    fillcolor="lightgrey",
+                                    fillcolor="#ffffff"
                                 )
                         else:
-                            # 删除的地址块
-                            label = f"{block['name']}\nBase: {block['baseAddress']}\nRange: {block['range']}"
+                            # 删除的地址块 - 使用#ffa6a6
+                            label = f"{block['name']}\nBase: {block['baseAddress']}\nRange: {block['range']}\nWidth: {block['width']}"
                             dot.node(
                                 block_name,
                                 label,
                                 shape="box",
                                 style="filled",
-                                fillcolor="red",
+                                fillcolor="#ffa6a6"
                             )
-                        dot.edge(name, block_name)
+                        # 添加连接线
+                        if block_in_v2:
+                            # 未修改的连接 - 使用#000000
+                            dot.edge(name, block_name, color="#000000")
+                        else:
+                            # 删除的连接 - 使用#ffa6a6
+                            dot.edge(name, block_name, color="#ffa6a6")
 
                 if name in spaces2:
                     for block in spaces2[name].get("addressblocks", []):
@@ -2225,20 +2345,17 @@ class IPXACTVisualizer:
                                     break
 
                         if not block_in_v1:
-                            # 新增的地址块
-                            label = f"{block['name']}\nBase: {block['baseAddress']}\nRange: {block['range']}"
+                            # 新增的地址块 - 使用#a6ffa6
+                            label = f"{block['name']}\nBase: {block['baseAddress']}\nRange: {block['range']}\nWidth: {block['width']}"
                             dot.node(
                                 block_name,
                                 label,
                                 shape="box",
                                 style="filled",
-                                fillcolor="green",
+                                fillcolor="#a6ffa6"
                             )
-                            dot.edge(name, block_name)
-
-            # 添加图例
-            # dot.node('legend', 'Legend:\nGreen: Added\nRed: Removed\nOrange: Modified\nGrey: Unchanged',
-            #         shape='box', style='filled', fillcolor='white')
+                            # 新增的连接 - 使用#a6ffa6
+                            dot.edge(name, block_name, color="#a6ffa6")
 
             dot.format = "png"
             output_path = get_temp_filename("address_space_diff", "")
@@ -2527,8 +2644,45 @@ class IPXACTVisualizer:
         """生成总线定义差异图"""
         try:
             # 提取节点信息
-            nodes1 = {item["name"]: item for item in elements1["busdefinition"]}
-            nodes2 = {item["name"]: item for item in elements2["busdefinition"]}
+            nodes1 = {item["name"]: item for item in elements1.get("busdefinition", [])}
+            nodes2 = {item["name"]: item for item in elements2.get("busdefinition", [])}
+
+            # 提取总线接口信息
+            interfaces1 = {}
+            for item in elements1.get("businterface", []):
+                # 使用接口名称作为键，并确保type字段正确设置
+                name = item.get("name", "")
+                if not name:  # 跳过没有名称的接口
+                    continue
+
+                # 获取总线类型，如果不存在则使用接口名称
+                bus_type = item.get("type")
+                if bus_type is None:
+                    bus_type = name
+
+                interfaces1[name] = {
+                    "name": name,
+                    "type": bus_type.lower() if bus_type else name.lower(),
+                    "mode": item.get("mode", "unknown"),
+                }
+
+            interfaces2 = {}
+            for item in elements2.get("businterface", []):
+                # 使用接口名称作为键，并确保type字段正确设置
+                name = item.get("name", "")
+                if not name:  # 跳过没有名称的接口
+                    continue
+
+                # 获取总线类型，如果不存在则使用接口名称
+                bus_type = item.get("type")
+                if bus_type is None:
+                    bus_type = name
+
+                interfaces2[name] = {
+                    "name": name,
+                    "type": bus_type.lower() if bus_type else name.lower(),
+                    "mode": item.get("mode", "unknown"),
+                }
 
             # 创建图
             dot = graphviz.Digraph(comment="Bus Definition Differences", engine="dot")
@@ -2541,187 +2695,111 @@ class IPXACTVisualizer:
                         # 修改的节点
                         dot.node(
                             name,
-                            f"{name}\n({nodes1[name]['version']} → {nodes2[name]['version']})",
+                            f"{name}\nVersion: {nodes1[name]['version']} → {nodes2[name]['version']}",
                             shape="box",
                             style="filled",
-                            fillcolor="orange",
+                            fillcolor="#ffffa6",
                         )
                     else:
                         # 未修改的节点
                         dot.node(
                             name,
-                            f"{name}\n({nodes1[name]['version']})",
+                            f"{name}\nVersion: {nodes1[name]['version']}",
                             shape="box",
                             style="filled",
-                            fillcolor="lightgrey",
+                            fillcolor="#ffffff",
                         )
                 elif name in nodes1:
                     # 删除的节点
                     dot.node(
                         name,
-                        f"{name}\n({nodes1[name]['version']})",
+                        f"{name}\nVersion: {nodes1[name]['version']}",
                         shape="box",
                         style="filled",
-                        fillcolor="red",
+                        fillcolor="#ffa6a6",
                     )
                 else:
                     # 新增的节点
                     dot.node(
                         name,
-                        f"{name}\n({nodes2[name]['version']})",
+                        f"{name}\nVersion: {nodes2[name]['version']}",
                         shape="box",
                         style="filled",
-                        fillcolor="green",
+                        fillcolor="#a6ffa6",
                     )
 
-            # 添加连接 - 修改连接逻辑
-            # 1. 首先添加在两个版本中都存在的连接
-            common_nodes = sorted(set(nodes1.keys()) & set(nodes2.keys()))
-            for i in range(len(common_nodes) - 1):
-                dot.edge(common_nodes[i], common_nodes[i + 1])
+            # 添加连接
 
-            # 2. 添加只在新版本中存在的连接
-            new_nodes = sorted(set(nodes2.keys()) - set(nodes1.keys()))
-            for i in range(len(new_nodes) - 1):
-                dot.edge(new_nodes[i], new_nodes[i + 1])
+            # 1. 处理第一个版本中的连接
+            for intf1 in interfaces1.values():
+                if intf1.get("mode") == "master":
+                    master_bus = intf1.get("type", "")
+                    if not master_bus:  # 跳过没有类型的接口
+                        continue
+                    for intf2 in interfaces1.values():
+                        if intf2.get("mode") == "slave":
+                            slave_bus = intf2.get("type", "")
+                            if not slave_bus:  # 跳过没有类型的接口
+                                continue
+                            if master_bus in nodes1 and slave_bus in nodes1:
+                                dot.edge(master_bus, slave_bus, color="#ffa6a6")
 
-            # 3. 添加只在旧版本中存在的连接
-            old_nodes = sorted(set(nodes1.keys()) - set(nodes2.keys()))
-            for i in range(len(old_nodes) - 1):
-                dot.edge(old_nodes[i], old_nodes[i + 1])
+            # 2. 处理第二个版本中的连接
+            for intf1 in interfaces2.values():
+                if intf1.get("mode") == "master":
+                    master_bus = intf1.get("type", "")
+                    if not master_bus:  # 跳过没有类型的接口
+                        continue
+                    for intf2 in interfaces2.values():
+                        if intf2.get("mode") == "slave":
+                            slave_bus = intf2.get("type", "")
+                            if not slave_bus:  # 跳过没有类型的接口
+                                continue
+                            if master_bus in nodes2 and slave_bus in nodes2:
+                                dot.edge(master_bus, slave_bus, color="#a6ffa6")
 
-            # 4. 添加新旧版本之间的连接
-            if common_nodes and new_nodes:
-                dot.edge(common_nodes[-1], new_nodes[0])
+            # 3. 处理共同存在的连接
+            for intf1 in interfaces1.values():
+                if intf1.get("mode") == "master":
+                    master_bus = intf1.get("type", "")
+                    if not master_bus:  # 跳过没有类型的接口
+                        continue
+                    for intf2 in interfaces1.values():
+                        if intf2.get("mode") == "slave":
+                            slave_bus = intf2.get("type", "")
+                            if not slave_bus:  # 跳过没有类型的接口
+                                continue
+                            if master_bus in nodes1 and slave_bus in nodes1:
+                                # 检查在第二个版本中是否存在相同的连接
+                                found = False
+                                for intf3 in interfaces2.values():
+                                    if (
+                                        intf3.get("mode") == "master"
+                                        and intf3.get("type", "") == master_bus
+                                    ):
+                                        for intf4 in interfaces2.values():
+                                            if (
+                                                intf4.get("mode") == "slave"
+                                                and intf4.get("type", "") == slave_bus
+                                            ):
+                                                found = True
+                                                break
+                                        if found:
+                                            break
+                                if found:
+                                    dot.edge(master_bus, slave_bus, color="#000000")
 
-            # 5. 添加被删除节点与其他节点的连接 - 只连接到共同存在的节点
-            for old_node in old_nodes:
-                for common_node in common_nodes:
-                    dot.edge(old_node, common_node, style="dashed", color="red")
-
-            # 添加图例
-            # dot.node('legend', 'Legend:\nGreen: Added\nRed: Removed\nOrange: Modified\nGrey: Unchanged\nDashed Red: Deleted Connections',
-            #         shape='box', style='filled', fillcolor='white')
-
+            # 生成图片
             dot.format = "png"
             output_path = get_temp_filename("bus_definition_diff", "")
             dot.render(output_path, cleanup=True)
             img_path = output_path + ".png"
 
+            # 转换为base64
             base64_str = image_to_base64(img_path)
             if os.path.exists(img_path):
                 os.remove(img_path)
             return base64_str
         except Exception as e:
-            print(f"Error generating bus definition diff diagram: {e}")
-            return None
-
-    def generate_component_instance_differences(
-        self, xml1_path, xml2_path, output_path
-    ):
-        """生成组件实例差异图"""
-        try:
-            # 解析两个XML文件
-            tree1 = ET.parse(xml1_path)
-            root1 = tree1.getroot()
-            tree2 = ET.parse(xml2_path)
-            root2 = tree2.getroot()
-
-            # 创建有向图
-            dot = graphviz.Digraph(
-                comment="Component Instance Differences", engine="dot"
-            )
-            dot.attr(rankdir="TB", dpi="300")
-
-            # 获取所有组件实例
-            instances1 = self._get_all_component_instances(root1)
-            instances2 = self._get_all_component_instances(root2)
-
-            # 添加节点
-            for instance in instances1:
-                instance_id = instance.get("instanceName", "")
-                component_ref = instance.get("componentRef", "")
-                # 获取组件类型
-                component_type = self._get_component_type(root1, component_ref)
-                if instance_id in [i.get("instanceName", "") for i in instances2]:
-                    # 共同存在的组件
-                    dot.node(
-                        instance_id,
-                        f"{instance_id}\n({component_type})",
-                        shape="box",
-                        style="filled",
-                        fillcolor="lightblue",
-                    )
-                else:
-                    # 只在第一个文件中存在的组件
-                    dot.node(
-                        instance_id,
-                        f"{instance_id}\n({component_type})",
-                        shape="box",
-                        style="filled",
-                        fillcolor="lightgreen",
-                    )
-
-            for instance in instances2:
-                instance_id = instance.get("instanceName", "")
-                component_ref = instance.get("componentRef", "")
-                # 获取组件类型
-                component_type = self._get_component_type(root2, component_ref)
-                if instance_id not in [i.get("instanceName", "") for i in instances1]:
-                    # 只在第二个文件中存在的组件
-                    dot.node(
-                        instance_id,
-                        f"{instance_id}\n({component_type})",
-                        shape="box",
-                        style="filled",
-                        fillcolor="lightcoral",
-                    )
-
-            # 添加连接
-            for instance in instances1:
-                instance_id = instance.get("instanceName", "")
-                for port in instance.findall(
-                    ".//{http://www.accellera.org/XMLSchema/IPXACT/1685-2014}port"
-                ):
-                    port_name = port.get("name", "")
-                    for connection in instance.findall(
-                        ".//{http://www.accellera.org/XMLSchema/IPXACT/1685-2014}connection"
-                    ):
-                        if connection.get("name", "").startswith(port_name):
-                            target = connection.get("target", "")
-                            if target in [
-                                i.get("instanceName", "")
-                                for i in instances1 + instances2
-                            ]:
-                                dot.edge(instance_id, target, label=port_name)
-
-            for instance in instances2:
-                instance_id = instance.get("instanceName", "")
-                for port in instance.findall(
-                    ".//{http://www.accellera.org/XMLSchema/IPXACT/1685-2014}port"
-                ):
-                    port_name = port.get("name", "")
-                    for connection in instance.findall(
-                        ".//{http://www.accellera.org/XMLSchema/IPXACT/1685-2014}connection"
-                    ):
-                        if connection.get("name", "").startswith(port_name):
-                            target = connection.get("target", "")
-                            if target in [
-                                i.get("instanceName", "")
-                                for i in instances1 + instances2
-                            ]:
-                                dot.edge(instance_id, target, label=port_name)
-
-            # 渲染图片
-            dot.format = "png"
-            output_path = get_temp_filename("component_instance_diff", "")
-            dot.render(output_path, cleanup=True)
-            img_path = output_path + ".png"
-
-            base64_str = image_to_base64(img_path)
-            if os.path.exists(img_path):
-                os.remove(img_path)
-            return base64_str
-        except Exception as e:
-            print(f"生成组件实例差异图时出错: {e}")
+            print(f"生成总线定义差异图时出错: {e}")
             return None
