@@ -822,31 +822,47 @@ class IPXACTVisualizer:
             mem_maps2 = {item["name"]: item for item in elements2["memorymap"]}
 
             dot = graphviz.Digraph(comment="Memory Map Diff", engine="dot")
-            dot.attr(rankdir="TB", dpi="300")
+            dot.attr(rankdir="TB", dpi="300", bgcolor="white")
 
             # 添加内存映射节点
             for name in set(mem_maps1.keys()) | set(mem_maps2.keys()):
                 if name in mem_maps1 and name in mem_maps2:
                     if mem_maps1[name] != mem_maps2[name]:
-                        # 修改的内存映射
+                        # 修改的内存映射 - 使用#ffffa6
                         dot.node(
-                            name, name, shape="box", style="filled", fillcolor="orange"
+                            name, 
+                            name, 
+                            shape="box", 
+                            style="filled", 
+                            fillcolor="#ffffa6"
                         )
                     else:
-                        # 未修改的内存映射
+                        # 未修改的内存映射 - 使用#ffffff
                         dot.node(
                             name,
                             name,
                             shape="box",
                             style="filled",
-                            fillcolor="lightgrey",
+                            fillcolor="#ffffff"
                         )
                 elif name in mem_maps1:
-                    # 删除的内存映射
-                    dot.node(name, name, shape="box", style="filled", fillcolor="red")
+                    # 删除的内存映射 - 使用#ffa6a6
+                    dot.node(
+                        name, 
+                        name, 
+                        shape="box", 
+                        style="filled", 
+                        fillcolor="#ffa6a6"
+                    )
                 else:
-                    # 新增的内存映射
-                    dot.node(name, name, shape="box", style="filled", fillcolor="green")
+                    # 新增的内存映射 - 使用#a6ffa6
+                    dot.node(
+                        name, 
+                        name, 
+                        shape="box", 
+                        style="filled", 
+                        fillcolor="#a6ffa6"
+                    )
 
                 # 添加地址块节点
                 if name in mem_maps1:
@@ -867,36 +883,41 @@ class IPXACTVisualizer:
                                 or block["range"] != block_in_v2["range"]
                                 or block["width"] != block_in_v2["width"]
                             ):
-                                # 修改的地址块
+                                # 修改的地址块 - 使用#ffffa6
                                 label = f"{block['name']}\nBase: {block['baseAddress']} → {block_in_v2['baseAddress']}\nRange: {block['range']} → {block_in_v2['range']}\nWidth: {block['width']} → {block_in_v2['width']}"
                                 dot.node(
                                     block_name,
                                     label,
                                     shape="box",
                                     style="filled",
-                                    fillcolor="orange",
+                                    fillcolor="#ffffa6"
                                 )
+                                # 未修改的连接 - 使用#000000
+                                dot.edge(name, block_name, color="#000000", style="solid")
                             else:
-                                # 未修改的地址块
+                                # 未修改的地址块 - 使用#ffffff
                                 label = f"{block['name']}\nBase: {block['baseAddress']}\nRange: {block['range']}\nWidth: {block['width']}"
                                 dot.node(
                                     block_name,
                                     label,
                                     shape="box",
                                     style="filled",
-                                    fillcolor="lightgrey",
+                                    fillcolor="#ffffff"
                                 )
+                                # 未修改的连接 - 使用#000000
+                                dot.edge(name, block_name, color="#000000", style="solid")
                         else:
-                            # 删除的地址块
+                            # 删除的地址块 - 使用#ffa6a6
                             label = f"{block['name']}\nBase: {block['baseAddress']}\nRange: {block['range']}\nWidth: {block['width']}"
                             dot.node(
                                 block_name,
                                 label,
                                 shape="box",
                                 style="filled",
-                                fillcolor="red",
+                                fillcolor="#ffa6a6"
                             )
-                        dot.edge(name, block_name)
+                            # 删除的连接 - 使用#ffa6a6
+                            dot.edge(name, block_name, color="#ffa6a6", style="solid")
 
                 if name in mem_maps2:
                     for block in mem_maps2[name].get("addressblocks", []):
@@ -910,20 +931,17 @@ class IPXACTVisualizer:
                                     break
 
                         if not block_in_v1:
-                            # 新增的地址块
+                            # 新增的地址块 - 使用#a6ffa6
                             label = f"{block['name']}\nBase: {block['baseAddress']}\nRange: {block['range']}\nWidth: {block['width']}"
                             dot.node(
                                 block_name,
                                 label,
                                 shape="box",
                                 style="filled",
-                                fillcolor="green",
+                                fillcolor="#a6ffa6"
                             )
-                            dot.edge(name, block_name)
-
-            # 添加图例
-            # dot.node('legend', 'Legend:\nGreen: Added\nRed: Removed\nOrange: Modified\nGrey: Unchanged',
-            #         shape='box', style='filled', fillcolor='white')
+                            # 新增的连接 - 使用#a6ffa6
+                            dot.edge(name, block_name, color="#a6ffa6", style="solid")
 
             dot.format = "png"
             output_path = get_temp_filename("memory_map_diff", "")
@@ -1538,13 +1556,17 @@ class IPXACTVisualizer:
                 return None
 
             dot = graphviz.Digraph(comment="Memory Map", engine="dot")
-            dot.attr(rankdir="TB", dpi="300")
+            dot.attr(rankdir="TB", dpi="300", bgcolor="white")
 
             # 添加内存映射节点
             for mm in memory_maps:
                 mm_name = mm["name"]
                 dot.node(
-                    mm_name, mm_name, shape="box", style="filled", fillcolor="lightgrey"
+                    mm_name, 
+                    mm_name, 
+                    shape="box", 
+                    style="filled", 
+                    fillcolor="#ffffff"
                 )
 
                 # 添加地址块节点
@@ -1556,13 +1578,10 @@ class IPXACTVisualizer:
                         label,
                         shape="box",
                         style="filled",
-                        fillcolor="lightblue",
+                        fillcolor="#ffffff"
                     )
-                    dot.edge(mm_name, ab_name)
-
-            # 添加图例
-            # dot.node('legend', 'Legend:\nGrey: Memory Map\nBlue: Address Block',
-            #         shape='box', style='filled', fillcolor='white')
+                    # 添加黑色实线连接
+                    dot.edge(mm_name, ab_name, color="#000000", style="solid")
 
             dot.format = "png"
             output_path = get_temp_filename("memory_map", "")
@@ -1981,14 +2000,18 @@ class IPXACTVisualizer:
                 return None
 
             dot = graphviz.Digraph(comment="Registers", engine="dot")
-            dot.attr(rankdir="TB", dpi="300")
+            dot.attr(rankdir="TB", dpi="300", bgcolor="white")
 
             # 添加寄存器节点
             for name, offset, size, access, fields in registers:
                 # 创建寄存器节点
                 reg_label = f"{name}\nOffset: {offset}\nSize: {size}\nAccess: {access}"
                 dot.node(
-                    name, reg_label, shape="box", style="filled", fillcolor="lightblue"
+                    name, 
+                    reg_label, 
+                    shape="box", 
+                    style="filled", 
+                    fillcolor="#ffffff"
                 )
 
                 # 添加字段节点
@@ -2000,9 +2023,10 @@ class IPXACTVisualizer:
                         field_label,
                         shape="box",
                         style="filled",
-                        fillcolor="lightgreen",
+                        fillcolor="#ffffff"
                     )
-                    dot.edge(name, field_id)
+                    # 添加黑色实线连接
+                    dot.edge(name, field_id, color="#000000", style="solid")
 
             dot.format = "png"
             output_path = get_temp_filename("register", "")
@@ -2305,6 +2329,8 @@ class IPXACTVisualizer:
                                     style="filled",
                                     fillcolor="#ffffa6"
                                 )
+                                # 未修改的连接 - 使用#000000
+                                dot.edge(name, block_name, color="#000000", style="solid")
                             else:
                                 # 未修改的地址块 - 使用#ffffff
                                 label = f"{block['name']}\nBase: {block['baseAddress']}\nRange: {block['range']}\nWidth: {block['width']}"
@@ -2315,6 +2341,8 @@ class IPXACTVisualizer:
                                     style="filled",
                                     fillcolor="#ffffff"
                                 )
+                                # 未修改的连接 - 使用#000000
+                                dot.edge(name, block_name, color="#000000", style="solid")
                         else:
                             # 删除的地址块 - 使用#ffa6a6
                             label = f"{block['name']}\nBase: {block['baseAddress']}\nRange: {block['range']}\nWidth: {block['width']}"
@@ -2325,13 +2353,8 @@ class IPXACTVisualizer:
                                 style="filled",
                                 fillcolor="#ffa6a6"
                             )
-                        # 添加连接线
-                        if block_in_v2:
-                            # 未修改的连接 - 使用#000000
-                            dot.edge(name, block_name, color="#000000")
-                        else:
                             # 删除的连接 - 使用#ffa6a6
-                            dot.edge(name, block_name, color="#ffa6a6")
+                            dot.edge(name, block_name, color="#ffa6a6", style="solid")
 
                 if name in spaces2:
                     for block in spaces2[name].get("addressblocks", []):
@@ -2355,7 +2378,7 @@ class IPXACTVisualizer:
                                 fillcolor="#a6ffa6"
                             )
                             # 新增的连接 - 使用#a6ffa6
-                            dot.edge(name, block_name, color="#a6ffa6")
+                            dot.edge(name, block_name, color="#a6ffa6", style="solid")
 
             dot.format = "png"
             output_path = get_temp_filename("address_space_diff", "")
@@ -2381,36 +2404,50 @@ class IPXACTVisualizer:
 
             # 创建图
             dot = graphviz.Digraph(comment="Register Differences", engine="dot")
-            dot.attr(rankdir="TB", dpi="300")
+            dot.attr(rankdir="TB", dpi="300", bgcolor="white")
 
             # 添加寄存器节点
             for name in set(registers1.keys()) | set(registers2.keys()):
                 if name in registers1 and name in registers2:
                     if registers1[name] != registers2[name]:
-                        # 修改的节点
+                        # 修改的节点 - 使用#ffffa6
                         label = f"{name}\nOffset: {registers1[name].get('address', 'N/A')} → {registers2[name].get('address', 'N/A')}\nSize: {registers1[name].get('size', 'N/A')} → {registers2[name].get('size', 'N/A')}\nAccess: {registers1[name].get('access', 'N/A')} → {registers2[name].get('access', 'N/A')}"
                         dot.node(
-                            name, label, shape="box", style="filled", fillcolor="orange"
+                            name, 
+                            label, 
+                            shape="box", 
+                            style="filled", 
+                            fillcolor="#ffffa6"
                         )
                     else:
-                        # 未修改的节点
+                        # 未修改的节点 - 使用#ffffff
                         label = f"{name}\nOffset: {registers1[name].get('address', 'N/A')}\nSize: {registers1[name].get('size', 'N/A')}\nAccess: {registers1[name].get('access', 'N/A')}"
                         dot.node(
                             name,
                             label,
                             shape="box",
                             style="filled",
-                            fillcolor="lightgrey",
+                            fillcolor="#ffffff"
                         )
                 elif name in registers1:
-                    # 删除的节点
+                    # 删除的节点 - 使用#ffa6a6
                     label = f"{name}\nOffset: {registers1[name].get('address', 'N/A')}\nSize: {registers1[name].get('size', 'N/A')}\nAccess: {registers1[name].get('access', 'N/A')}"
-                    dot.node(name, label, shape="box", style="filled", fillcolor="red")
+                    dot.node(
+                        name, 
+                        label, 
+                        shape="box", 
+                        style="filled", 
+                        fillcolor="#ffa6a6"
+                    )
                 else:
-                    # 新增的节点
+                    # 新增的节点 - 使用#a6ffa6
                     label = f"{name}\nOffset: {registers2[name].get('address', 'N/A')}\nSize: {registers2[name].get('size', 'N/A')}\nAccess: {registers2[name].get('access', 'N/A')}"
                     dot.node(
-                        name, label, shape="box", style="filled", fillcolor="green"
+                        name, 
+                        label, 
+                        shape="box", 
+                        style="filled", 
+                        fillcolor="#a6ffa6"
                     )
 
                 # 添加字段节点
@@ -2428,37 +2465,41 @@ class IPXACTVisualizer:
                         if field_in_v2:
                             # 检查是否有变化
                             if field != field_in_v2:
-                                # 修改的字段
+                                # 修改的字段 - 使用#ffffa6
                                 label = f"{field['name']}\nBits: {field.get('bitOffset', 'N/A')} → {field_in_v2.get('bitOffset', 'N/A')}\nWidth: {field.get('bitWidth', 'N/A')} → {field_in_v2.get('bitWidth', 'N/A')}\nAccess: {field.get('access', 'N/A')} → {field_in_v2.get('access', 'N/A')}"
                                 dot.node(
                                     field_name,
                                     label,
                                     shape="box",
                                     style="filled",
-                                    fillcolor="orange",
+                                    fillcolor="#ffffa6"
                                 )
+                                # 未修改的连接 - 使用#000000
+                                dot.edge(name, field_name, color="#000000", style="solid")
                             else:
-                                # 未修改的字段
+                                # 未修改的字段 - 使用#ffffff
                                 label = f"{field['name']}\nBits: {field.get('bitOffset', 'N/A')}\nWidth: {field.get('bitWidth', 'N/A')}\nAccess: {field.get('access', 'N/A')}"
                                 dot.node(
                                     field_name,
                                     label,
                                     shape="box",
                                     style="filled",
-                                    fillcolor="lightgrey",
+                                    fillcolor="#ffffff"
                                 )
+                                # 未修改的连接 - 使用#000000
+                                dot.edge(name, field_name, color="#000000", style="solid")
                         else:
-                            # 删除的字段
+                            # 删除的字段 - 使用#ffa6a6
                             label = f"{field['name']}\nBits: {field.get('bitOffset', 'N/A')}\nWidth: {field.get('bitWidth', 'N/A')}\nAccess: {field.get('access', 'N/A')}"
                             dot.node(
                                 field_name,
                                 label,
                                 shape="box",
                                 style="filled",
-                                fillcolor="red",
+                                fillcolor="#ffa6a6"
                             )
-                        # 添加从寄存器到字段的连接
-                        dot.edge(name, field_name)
+                            # 删除的连接 - 使用#ffa6a6
+                            dot.edge(name, field_name, color="#ffa6a6", style="solid")
 
                 if name in registers2:
                     for field in registers2[name].get("fields", []):
@@ -2472,21 +2513,17 @@ class IPXACTVisualizer:
                                     break
 
                         if not field_in_v1:
-                            # 新增的字段
+                            # 新增的字段 - 使用#a6ffa6
                             label = f"{field['name']}\nBits: {field.get('bitOffset', 'N/A')}\nWidth: {field.get('bitWidth', 'N/A')}\nAccess: {field.get('access', 'N/A')}"
                             dot.node(
                                 field_name,
                                 label,
                                 shape="box",
                                 style="filled",
-                                fillcolor="green",
+                                fillcolor="#a6ffa6"
                             )
-                            # 添加从寄存器到字段的连接
-                            dot.edge(name, field_name)
-
-            # 添加图例
-            # dot.node('legend', 'Legend:\nGreen: Added\nRed: Removed\nOrange: Modified\nGrey: Unchanged',
-            #         shape='box', style='filled', fillcolor='white')
+                            # 新增的连接 - 使用#a6ffa6
+                            dot.edge(name, field_name, color="#a6ffa6", style="solid")
 
             dot.format = "png"
             output_path = get_temp_filename("register_diff", "")
