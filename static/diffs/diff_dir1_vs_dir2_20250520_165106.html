@@ -1,0 +1,64 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<title>目录比较结果</title>
+<style>
+body { font-family: Arial, sans-serif; margin: 20px; }
+h1 { color: #333; }
+.section { margin: 20px 0; }
+.file-list { list-style-type: none; padding: 0; }
+.file-list li { margin: 5px 0; }
+.identical { color: green; }
+.different { color: orange; }
+.only-in-dir1 { color: blue; }
+.only-in-dir2 { color: red; }
+.view-link { color: #0066cc; text-decoration: none; margin-left: 10px; }
+.view-link:hover { text-decoration: underline; }
+</style>
+</head>
+<body>
+<h1>目录比较结果</h1>
+<div class="section">
+<h2 class="different">不同文件: different.pdf</h2>
+<p>目录1大小: 786951 bytes</p>
+<p>目录2大小: 787855 bytes</p>
+<a href="/separate\1a6b3eb3dd96479fa2fe0c1bcc9ac1b5\outputfile.html" class="view-link" target="_blank">查看目录1文件</a>
+<a href="/separate\0c742da7384c44e68b7bbdfff6a55231\outputfile.html" class="view-link" target="_blank">查看目录2文件</a>
+</div>
+<div class="section">
+<h2 class="different">不同文件: different.txt</h2>
+<p>目录1大小: 30 bytes</p>
+<p>目录2大小: 30 bytes</p>
+<a href="/separate\f1315ca9d0364d65a0e46876f6e0b8a2\outputfile.html" class="view-link" target="_blank">查看目录1文件</a>
+<a href="/separate\630d3980839148f7a2db6817fdc4f013\outputfile.html" class="view-link" target="_blank">查看目录2文件</a>
+</div>
+<div class="section">
+<h2 class="identical">相同文件: identical.txt</h2>
+<p>大小: 42 bytes</p>
+<a href="/separate\7ddeb8cd00b14d18a74d944c07342d50\outputfile.html" class="view-link" target="_blank">查看文件</a>
+</div>
+<div class="section">
+<h2 class="different">不同文件: ipxact.xml</h2>
+<p>目录1大小: 6506 bytes</p>
+<p>目录2大小: 8586 bytes</p>
+<a href="/separate\0f4c8d8c775745e6b0cbacf3d44e3ea0\outputfile.html" class="view-link" target="_blank">查看目录1文件</a>
+<a href="/separate\4750840447974f649f998bf2fe8744db\outputfile.html" class="view-link" target="_blank">查看目录2文件</a>
+</div>
+<div class="section">
+<h2 class="only-in-dir2">仅在目录2中: new_ipxact.xml</h2>
+<p>大小: 8586 bytes</p>
+<a href="/separate\e199f4342bc341088badd5c3d545c6b1\outputfile.html" class="view-link" target="_blank">查看文件</a>
+</div>
+<div class="section">
+<h2 class="only-in-dir1">仅在目录1中: only_in_dir1.txt</h2>
+<p>大小: 25 bytes</p>
+<a href="/separate\e6607da48cc84c8c8ecaf0d4bc96be96\outputfile.html" class="view-link" target="_blank">查看文件</a>
+</div>
+<div class="section">
+<h2 class="only-in-dir2">仅在目录2中: only_in_dir2.txt</h2>
+<p>大小: 25 bytes</p>
+<a href="/separate\e609886123944270adbc35af0a4b3e85\outputfile.html" class="view-link" target="_blank">查看文件</a>
+</div>
+</body>
+</html>

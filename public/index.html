@@ -23,11 +23,10 @@
         }
 
         body {
-            font-family: 'Segoe UI', system-ui, sans-serif;
-            line-height: 1.6;
-            background: var(--background);
-            color: var(--text-color);
-            padding: 2rem;
+            font-family: Arial, sans-serif;
+            margin: 0;
+            padding: 20px;
+            background-color: #f5f5f5;
         }
 
         .container {
@@ -60,25 +59,18 @@
         }
 
         .drop-zone {
-            position: relative;
-            margin: 1rem 0;
-            min-height: 200px;
-            border: 2px dashed var(--primary-color);
-            border-radius: 8px;
-            background: #f8f9ff;
-            color: var(--primary-color);
-            display: flex;
-            flex-direction: column;
-            align-items: center;
-            justify-content: center;
+            border: 2px dashed #ccc;
+            border-radius: 4px;
+            padding: 20px;
+            text-align: center;
+            background-color: white;
+            margin-bottom: 20px;
             cursor: pointer;
-            transition: all 0.3s ease;
         }
 
         .drop-zone.dragover {
-            background: var(--primary-color);
-            color: white;
-            border-color: var(--secondary-color);
+            background-color: #e1f5fe;
+            border-color: #2196f3;
         }
 
         .drop-zone i {
@@ -125,40 +117,56 @@
         }
 
         .result-section {
-            margin-bottom: 1.5rem;
+            background-color: white;
+            padding: 20px;
+            border-radius: 4px;
+            margin-bottom: 20px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
         }
 
         .result-section h3 {
-            color: var(--primary-color);
-            margin-bottom: 1rem;
+            margin: 0 0 15px 0;
+            color: #333;
         }
 
         .file-list {
             list-style: none;
+            padding: 0;
         }
 
         .file-item {
-            padding: 0.5rem;
-            margin: 0.25rem 0;
+            background-color: white;
+            padding: 10px;
+            margin: 5px 0;
             border-radius: 4px;
             display: flex;
             align-items: center;
-        }
-
-        .file-item.clickable {
             cursor: pointer;
-            transition: background-color 0.2s;
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
+            transition: background-color 0.3s;
         }
 
-        .file-item.clickable:hover {
-            filter: brightness(0.95);
+        .file-item:hover {
+            background-color: #e3f2fd;
         }
 
         .file-item i {
-            margin-right: 0.5rem;
+            font-size: 1.2em;
+        }
+
+        .file-item.added {
+            border-left: 4px solid #4caf50;
+        }
+
+        .file-item.removed {
+            border-left: 4px solid #f44336;
+        }
+
+        .file-item.modified {
+            border-left: 4px solid #ff9800;
+        }
+
+        .file-item.unchanged {
+            border-left: 4px solid #2196f3;
         }
 
         .view-link {
@@ -175,47 +183,75 @@
         .file-content {
             display: flex;
             align-items: center;
-        }
-
-        .added {
-            background: var(--added-color);
-        }
-
-        .removed {
-            background: var(--removed-color);
-        }
-
-        .modified {
-            background: var(--modified-color);
-        }
-
-        .unchanged {
-            background: var(--unchanged-color);
+            gap: 10px;
         }
 
         .stats {
             display: grid;
             grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
-            gap: 1rem;
-            margin-bottom: 2rem;
+            gap: 20px;
+            margin-bottom: 20px;
         }
 
         .stat-card {
-            background: white;
-            padding: 1rem;
-            border-radius: 8px;
+            background-color: white;
+            padding: 20px;
+            border-radius: 4px;
             text-align: center;
-            box-shadow: 0 2px 4px rgba(0, 0, 0, 0.05);
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
         }
 
         .stat-card h4 {
-            color: var(--primary-color);
-            margin-bottom: 0.5rem;
+            margin: 0 0 10px 0;
+            color: #666;
         }
 
         .stat-card .number {
-            font-size: 1.5rem;
+            font-size: 24px;
             font-weight: bold;
+            color: #2196f3;
+        }
+
+        #compare-btn {
+            background-color: #2196f3;
+            color: white;
+            border: none;
+            padding: 10px 20px;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 16px;
+            transition: background-color 0.3s;
+        }
+
+        #compare-btn:hover {
+            background-color: #1976d2;
+        }
+
+        #compare-btn:disabled {
+            background-color: #ccc;
+            cursor: not-allowed;
+        }
+
+        #diff-viewer {
+            background-color: white;
+            padding: 20px;
+            border-radius: 4px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        }
+
+        #diff-viewer button {
+            background-color: #2196f3;
+            color: white;
+            border: none;
+            padding: 8px 16px;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 14px;
+            transition: background-color 0.3s;
+        }
+
+        #diff-viewer button:hover {
+            background-color: #1976d2;
         }
 
         @media (max-width: 768px) {
@@ -569,6 +605,7 @@
         function createFileItem(file, type) {
             const li = document.createElement('li');
             li.className = `file-item ${type} clickable`;
+            li.onclick = () => viewFile(file, type);
             
             const contentDiv = document.createElement('div');
             contentDiv.className = 'file-content';
@@ -582,18 +619,6 @@
             contentDiv.appendChild(text);
             
             li.appendChild(contentDiv);
-
-            // 添加查看链接
-            const viewLink = document.createElement('a');
-            viewLink.href = '#';
-            viewLink.className = 'view-link';
-            viewLink.textContent = '查看文件';
-            viewLink.onclick = (e) => {
-                e.preventDefault();
-                viewFile(file, type);
-            };
-            li.appendChild(viewLink);
-
             return li;
         }
     </script>

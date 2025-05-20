@@ -152,6 +152,25 @@ def convert_to_html(input_file):
             <style>
                 body {{ font-family: sans-serif; padding: 20px; text-align: center;}}
                 img {{ box-shadow: 0 0 10px rgba(0,0,0,0.2); margin-bottom: 30px; }}
+                .file-list {{ list-style: none; padding: 0; }}
+                .file-list li {{ 
+                    margin: 10px 0; 
+                    padding: 10px; 
+                    background-color: #f5f5f5; 
+                    border-radius: 5px;
+                    cursor: pointer;
+                    transition: background-color 0.3s;
+                }}
+                .file-list li:hover {{ 
+                    background-color: #e0e0e0;
+                }}
+                .file-list li a {{
+                    text-decoration: none;
+                    color: #333;
+                    display: block;
+                    width: 100%;
+                    height: 100%;
+                }}
             </style>
         </head>
         <body>
