@@ -486,11 +486,11 @@
                 // 对于其他类型的文件，使用单文件查看
                 let filePath;
                 if (type === 'added') {
-                    filePath = `/api/view_file?file=${encodeURIComponent(file)}&dir=dir2`;
+                    filePath = `/api/view_file?file=${encodeURIComponent(file)}&dir=dir2&temp_dir=${encodeURIComponent(window.tempDirs.dir2)}`;
                 } else if (type === 'removed') {
-                    filePath = `/api/view_file?file=${encodeURIComponent(file)}&dir=dir1`;
+                    filePath = `/api/view_file?file=${encodeURIComponent(file)}&dir=dir1&temp_dir=${encodeURIComponent(window.tempDirs.dir1)}`;
                 } else if (type === 'unchanged') {
-                    filePath = `/api/view_file?file=${encodeURIComponent(file)}&dir=dir1`;
+                    filePath = `/api/view_file?file=${encodeURIComponent(file)}&dir=dir1&temp_dir=${encodeURIComponent(window.tempDirs.dir1)}`;
                 }
 
                 if (filePath) {

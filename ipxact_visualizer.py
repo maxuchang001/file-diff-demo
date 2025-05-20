@@ -197,6 +197,8 @@ class IPXACTVisualizer:
                     ),
                 }
                 design_data["componentinstances"].append(ci_data)
+                # 同时添加到 componentinstance 列表中
+                elements["componentinstance"].append(ci_data)
 
             elements["design"].append(design_data)
 
@@ -294,20 +296,6 @@ class IPXACTVisualizer:
                     "direction": port.findtext(
                         "spirit:wire/spirit:direction", default="N/A", namespaces=ns
                     ),
-                }
-            )
-        # componentInstances
-        for inst in root.findall(".//spirit:componentInstance", ns):
-            type_elem = inst.find("spirit:componentRef", ns)
-            type_name = (
-                type_elem.get(f"{{{ns['spirit']}}}name")
-                if type_elem is not None
-                else "N/A"
-            )
-            elements["componentinstance"].append(
-                {
-                    "name": inst.findtext("spirit:name", default="N/A", namespaces=ns),
-                    "componentRef": type_name,
                 }
             )
         # adhocConnections
@@ -912,6 +900,8 @@ class IPXACTVisualizer:
                         width: 40vw;
                         border-radius: 8px;
                         padding: 1rem;
+                        background-color: #e6f3ff;
+                        box-shadow: none;
                     }}
                     .image-container.v1 {{
                         background-color: #e6f3ff;
@@ -926,6 +916,7 @@ class IPXACTVisualizer:
                         max-height: 28rem;
                         max-width: 38vw;
                         object-fit: contain;
+                        box-shadow: none;
                     }}
                     .image-label {{ 
                         text-align: center; 
@@ -1324,59 +1315,68 @@ class IPXACTVisualizer:
             print(f"生成总线接口图时出错: {e}")
             return None
 
-        """生成Ad-hoc连接关系图"""
-        if elements is None:
-            # 如果没有传入elements，从当前XML文件中提取
-            elements = self.extract_ipxact_elements(self.root)
+    def generate_ad_hoc_connections_diagram(self, elements=None, output_img="ad_hoc_connections"):
+        """生成Ad-hoc连接关系图
+        
+        Args:
+            elements: IPXACT元素字典,如果为None则从当前XML文件中提取
+            output_img: 输出图片文件名前缀
+            
+        Returns:
+            str: base64编码的图片数据,失败返回None
+        """
+        try:
+            if elements is None:
+                # 如果没有传入elements，从当前XML文件中提取
+                elements = self.extract_ipxact_elements(self.root)
 
-        dot = graphviz.Digraph("Ad-hoc Connections", format="png")
-        dot.attr(rankdir="LR")
+            dot = graphviz.Digraph("Ad-hoc Connections", format="png")
+            dot.attr(rankdir="LR")
 
-        # 提取所有Ad-hoc连接
-        connections = []
-        for element in elements.get("adhocconnection", []):
-            name = element.get("name", "")
-            # 提取组件引用和端口引用
-            comp_refs = []
-            port_refs = []
-            for ref in element.get("internalPortReferences", []):
-                comp_ref = ref.get("componentRef", "")
-                port_ref = ref.get("portRef", "")
-                if comp_ref and port_ref:
-                    comp_refs.append(comp_ref)
-                    port_refs.append(port_ref)
-            if len(comp_refs) == 2:
-                connections.append(
-                    (name, comp_refs[0], comp_refs[1], port_refs[0], port_refs[1])
-                )
+            # 提取所有Ad-hoc连接
+            connections = []
+            for element in elements.get("adhocconnection", []):
+                name = element.get("name", "")
+                # 提取组件引用和端口引用
+                comp_refs = []
+                port_refs = []
+                for ref in element.get("internalPortReferences", []):
+                    comp_ref = ref.get("componentRef", "")
+                    port_ref = ref.get("portRef", "")
+                    if comp_ref and port_ref:
+                        comp_refs.append(comp_ref)
+                        port_refs.append(port_ref)
+                if len(comp_refs) == 2:
+                    connections.append(
+                        (name, comp_refs[0], comp_refs[1], port_refs[0], port_refs[1])
+                    )
 
-        # 添加节点和边
-        for name, comp1, comp2, port1, port2 in connections:
-            # 创建节点标签，包含端口信息
-            label1 = f"{comp1}\n({port1})"
-            label2 = f"{comp2}\n({port2})"
+            # 添加节点和边
+            for name, comp1, comp2, port1, port2 in connections:
+                # 创建节点标签，包含端口信息
+                label1 = f"{comp1}\n({port1})"
+                label2 = f"{comp2}\n({port2})"
 
-            # 添加节点
-            dot.node(comp1, label1, shape="box", style="filled", fillcolor="lightblue")
-            dot.node(comp2, label2, shape="box", style="filled", fillcolor="lightblue")
+                # 添加节点
+                dot.node(comp1, label1, shape="box", style="filled", fillcolor="lightblue")
+                dot.node(comp2, label2, shape="box", style="filled", fillcolor="lightblue")
 
-            # 添加边
-            dot.edge(comp1, comp2, label=name, style="solid", color="black")
+                # 添加边
+                dot.edge(comp1, comp2, label=name, style="solid", color="black")
 
-        # 添加图例
-        # dot.node('legend', 'Ad-hoc Connections\n(Component Name)\n(Port Name)',
-        #         shape='box', style='filled', fillcolor='lightblue')
+            # 渲染图
+            output_path = get_temp_filename("ad_hoc_connections", "")
+            dot.render(output_path, cleanup=True)
+            img_path = output_path + ".png"
 
-        # 渲染图
-        output_path = get_temp_filename("ad_hoc_connections", "")
-        dot.render(output_path, cleanup=True)
-        img_path = output_path + ".png"
-
-        # 将图转换为base64字符串
-        base64_str = image_to_base64(img_path)
-        if os.path.exists(img_path):
-            os.remove(img_path)
-        return base64_str
+            # 将图转换为base64字符串
+            base64_str = image_to_base64(img_path)
+            if os.path.exists(img_path):
+                os.remove(img_path)
+            return base64_str
+        except Exception as e:
+            print(f"Error generating ad-hoc connections diagram: {e}")
+            return None
 
     def generate_memory_map_diagram(self, output_img="memory_map"):
         """生成内存映射图"""
@@ -2682,3 +2682,280 @@ class IPXACTVisualizer:
         except Exception as e:
             print(f"生成总线定义差异图时出错: {e}")
             return None
+
+    def generate_single_file_html(self, file_path, output_file):
+        """生成单个IPXACT文件的HTML报告"""
+        try:
+            # 解析XML文件
+            tree = ET.parse(file_path)
+            root = tree.getroot()
+
+            # 提取元素
+            elements = self.extract_ipxact_elements(root)
+
+            # 确保输出目录存在
+            output_dir = os.path.dirname(output_file)
+            os.makedirs(output_dir, exist_ok=True)
+
+            # 创建可视化器实例
+            visualizer = IPXACTVisualizer(file_path)
+
+            # 使用线程池并行生成图片
+            max_workers = min(multiprocessing.cpu_count() * 2, 8)
+            with ThreadPoolExecutor(max_workers=max_workers) as executor:
+                # 提交所有图片生成任务
+                future_to_task = {
+                    # 组件相关
+                    executor.submit(visualizer.generate_component_diagram): "component",
+                    executor.submit(visualizer.generate_component_instances_diagram): "componentinstance",
+                    # 总线相关
+                    executor.submit(visualizer.generate_bus_definition_diagram): "busdefinition",
+                    executor.submit(visualizer.generate_bus_interfaces_diagram): "businterface",
+                    # 设计相关
+                    executor.submit(visualizer.generate_design_diagram): "design",
+                    # 视图相关
+                    executor.submit(visualizer.generate_view_diagram): "view",
+                    # 地址空间相关
+                    executor.submit(visualizer.generate_address_space_diagram): "addressspace",
+                    # 寄存器相关
+                    executor.submit(visualizer.generate_register_diagram): "register",
+                    # 内存映射相关
+                    executor.submit(visualizer.generate_memory_map_diagram): "memorymap",
+                }
+
+                # 收集结果
+                results = {}
+                for future in as_completed(future_to_task):
+                    task_name = future_to_task[future]
+                    try:
+                        results[task_name] = future.result()
+                    except Exception as e:
+                        print(f"Error generating {task_name}: {e}")
+                        results[task_name] = None
+
+            # 生成HTML内容
+            base_name = os.path.splitext(os.path.basename(file_path))[0]
+            html_content = f"""<!DOCTYPE html>
+            <html>
+            <head>
+                <title>IPXACT Report: {base_name}</title>
+                <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/jstree/3.3.12/themes/default/style.min.css" />
+                <script src="https://cdnjs.cloudflare.com/ajax/libs/jquery/3.6.0/jquery.min.js"></script>
+                <script src="https://cdnjs.cloudflare.com/ajax/libs/jstree/3.3.12/jstree.min.js"></script>
+                <style>
+                    body {{ font-family: Consolas, monospace; margin: 20px; }}
+                    .section {{ margin: 20px 0; }}
+                    .section-title {{ font-size: 18px; font-weight: bold; margin: 10px 0; }}
+                    table {{ border-collapse: collapse; width: 100%; margin: 10px 0; }}
+                    th, td {{ border: 1px solid #ddd; padding: 8px; text-align: left; }}
+                    th {{ background-color: #f5f5f5; }}
+                    .summary {{ margin: 20px 0; padding: 10px; background-color: #f8f9fa; border-radius: 5px; }}
+                    .summary-item {{ margin: 5px 0; }}
+                    .image-container {{ 
+                        display: flex;
+                        flex-direction: column;
+                        align-items: center;
+                        justify-content: center;
+                        height: 30rem;
+                        width: 40vw;
+                        border-radius: 8px;
+                        padding: 1rem;
+                        background-color: #e6f3ff;
+                        box-shadow: none;
+                    }}
+                    .image-container img {{ 
+                        max-height: 28rem;
+                        max-width: 38vw;
+                        object-fit: contain;
+                        box-shadow: none;
+                    }}
+                    .image-label {{ 
+                        text-align: center; 
+                        margin: 5px 0;
+                        font-weight: bold;
+                        color: #333;
+                    }}
+                    .content-section {{ margin: 20px; }}
+                    .diagram-section {{ 
+                        margin-top: 20px; 
+                        padding-top: 20px; 
+                        border-top: 1px solid #ddd;
+                        display: flex;
+                        flex-direction: column;
+                        align-items: center;
+                    }}
+                    .header {{ margin-bottom: 20px; }}
+                </style>
+            </head>
+            <body>
+                <div class="header">
+                    <h1>IPXACT Report</h1>
+                    <p>File: {base_name}</p>
+                    <p>Generated: {datetime.now().strftime("%Y-%m-%d %H:%M:%S")}</p>
+                </div>
+            """
+
+            # 添加内容区域
+            html_content += '<div class="content-section">'
+
+            # 生成统计摘要
+            stats = defaultdict(int)
+            for section in elements.keys():
+                stats[section] = len(elements[section])
+
+            # 显示统计摘要
+            html_content += '<div class="section" id="summary">'
+            html_content += "<h2>Summary</h2>"
+            for section, count in stats.items():
+                if count > 0:
+                    html_content += f'<div class="summary-item">'
+                    html_content += f"<strong>{section}:</strong> {count} items"
+                    html_content += "</div>"
+            html_content += "</div>"
+
+            # 为每个部分生成内容
+            sections = [
+                "component",
+                "componentinstance",
+                "busdefinition",
+                "businterface",
+                "design",
+                "view",
+                "addressspace",
+                "memorymap",
+                "register",
+            ]
+            sections_map = {
+                "component": "Component",
+                "componentinstance": "Component Instance",
+                "busdefinition": "Bus Definition",
+                "businterface": "Bus Interface",
+                "design": "Design",
+                "view": "View",
+                "addressspace": "Address Space",
+                "memorymap": "Memory Map",
+                "register": "Register",
+            }
+            for section in sections:
+                html_content += f'<div class="section" id="{section}">'
+                html_content += f'<div class="section-title">{sections_map[section]}</div>'
+
+                # 生成表格
+                html_content += self._generate_single_table(section, elements)
+
+                # 添加对应的图片
+                if section == "component" and results.get("component"):
+                    html_content += '<div class="diagram-section">'
+                    html_content += '<div class="section-title">Component Diagram</div>'
+                    html_content += f'<div class="image-container"><img src="{results["component"]}"></div>'
+                    html_content += "</div>"
+
+                elif section == "componentinstance" and results.get("componentinstance"):
+                    html_content += '<div class="diagram-section">'
+                    html_content += '<div class="section-title">Component Instance Diagram</div>'
+                    html_content += f'<div class="image-container"><img src="{results["componentinstance"]}"></div>'
+                    html_content += "</div>"
+
+                elif section == "busdefinition" and results.get("busdefinition"):
+                    html_content += '<div class="diagram-section">'
+                    html_content += '<div class="section-title">Bus Definition Diagram</div>'
+                    html_content += f'<div class="image-container"><img src="{results["busdefinition"]}"></div>'
+                    html_content += "</div>"
+
+                elif section == "businterface" and results.get("businterface"):
+                    html_content += '<div class="diagram-section">'
+                    html_content += '<div class="section-title">Bus Interface Diagram</div>'
+                    html_content += f'<div class="image-container"><img src="{results["businterface"]}"></div>'
+                    html_content += "</div>"
+
+                elif section == "design" and results.get("design"):
+                    html_content += '<div class="diagram-section">'
+                    html_content += '<div class="section-title">Design Diagram</div>'
+                    html_content += f'<div class="image-container"><img src="{results["design"]}"></div>'
+                    html_content += "</div>"
+
+                elif section == "view" and results.get("view"):
+                    html_content += '<div class="diagram-section">'
+                    html_content += '<div class="section-title">View Diagram</div>'
+                    html_content += f'<div class="image-container"><img src="{results["view"]}"></div>'
+                    html_content += "</div>"
+
+                elif section == "addressspace" and results.get("addressspace"):
+                    html_content += '<div class="diagram-section">'
+                    html_content += '<div class="section-title">Address Space Diagram</div>'
+                    html_content += f'<div class="image-container"><img src="{results["addressspace"]}"></div>'
+                    html_content += "</div>"
+
+                elif section == "register" and results.get("register"):
+                    html_content += '<div class="diagram-section">'
+                    html_content += '<div class="section-title">Register Diagram</div>'
+                    html_content += f'<div class="image-container"><img src="{results["register"]}"></div>'
+                    html_content += "</div>"
+
+                elif section == "memorymap" and results.get("memorymap"):
+                    html_content += '<div class="diagram-section">'
+                    html_content += '<div class="section-title">Memory Map Diagram</div>'
+                    html_content += f'<div class="image-container"><img src="{results["memorymap"]}"></div>'
+                    html_content += "</div>"
+
+                html_content += "</div>"
+
+            html_content += "</div></body></html>"
+
+            # 写入HTML文件
+            with open(output_file, "w", encoding="utf-8") as f:
+                f.write(html_content)
+
+            print(f"IPXACT报告已生成: {output_file}")
+            return 'ok', output_file
+
+        except Exception as e:
+            print(f"生成IPXACT报告时出错: {str(e)}")
+            return 'no', str(e)
+
+    def _generate_single_table(self, section, elements):
+        """生成单个文件的表格"""
+        try:
+            if not elements.get(section):
+                return "<p>No elements found in this section.</p>"
+
+            # 特殊处理component元素
+            if section == "component":
+                comp = elements.get("component", [{}])[0]
+
+                html = [
+                    "<table class='table'>",
+                    "<tr><th>Property</th><th>Value</th></tr>",
+                ]
+
+                # 显示组件属性
+                for prop in ["name", "version", "vendor", "library"]:
+                    value = comp.get(prop, "N/A")
+                    html.append("<tr>")
+                    html.append(f"<td>{prop}</td>")
+                    html.append(f"<td>{value}</td>")
+                    html.append("</tr>")
+
+                html.append("</table>")
+                return "\n".join(html)
+
+            # 其他元素的处理
+            else:
+                items = elements.get(section, [])
+
+                html = [
+                    "<table class='table'>",
+                    "<tr><th>Name</th><th>Details</th></tr>",
+                ]
+
+                for item in sorted(items, key=lambda x: x.get("name", "")):
+                    html.append("<tr>")
+                    html.append(f"<td>{item.get('name', 'N/A')}</td>")
+                    html.append(f"<td>{json.dumps(item, indent=2)}</td>")
+                    html.append("</tr>")
+
+                html.append("</table>")
+                return "\n".join(html)
+        except Exception as e:
+            print(f"Error generating table for {section}: {str(e)}")
+            return f"<p>Error generating table: {str(e)}</p>"

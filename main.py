@@ -84,13 +84,13 @@ def view_file():
     try:
         file_path = request.args.get('file')
         dir_type = request.args.get('dir')
+        temp_dir = request.args.get('temp_dir')
         
-        if not file_path or not dir_type:
-            return jsonify({'error': 'Missing file path or directory type'}), 400
+        if not file_path or not dir_type or not temp_dir:
+            return jsonify({'error': 'Missing file path, directory type or temp directory'}), 400
             
-        # 从全局字典中获取临时目录路径
-        temp_dir = temp_dirs.get(dir_type)
-        if not temp_dir or not os.path.exists(temp_dir):
+        # 使用传入的临时目录路径
+        if not os.path.exists(temp_dir):
             return jsonify({'error': 'Directory not found'}), 404
             
         # 构建完整的文件路径

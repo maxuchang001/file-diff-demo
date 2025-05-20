@@ -2,11 +2,13 @@ import os
 import base64
 import mimetypes
 import uuid
+import xml.etree.ElementTree as ET
 
 from markdown import markdown
 from docx import Document
 import pandas as pd
 from pdf2image import convert_from_path
+from ipxact_visualizer import IPXACTVisualizer
 
 
 def pdf_to_html(pdf_path):
@@ -26,6 +28,49 @@ def pdf_to_html(pdf_path):
 
         os.remove(f"page_{idx+1}.jpg")  # 可选：删除临时图像文件
     return image_tags
+
+def is_ipxact_file(file_path):
+    """检查文件是否为 IPXACT 文件
+    
+    Args:
+        file_path: 文件路径
+        
+    Returns:
+        tuple: (bool, str)
+            bool: 是否为 IPXACT 文件
+            str: 如果不是 IPXACT 文件，返回原因
+    """
+    try:
+        tree = ET.parse(file_path)
+        root = tree.getroot()
+        
+        # 检查命名空间
+        ns = {
+            'spirit': 'http://www.spiritconsortium.org/XMLSchema/SPIRIT/1685-2014'
+        }
+        
+        # 检查根元素
+        if not root.tag.endswith('component'):
+            return False, "根元素不是 component"
+            
+        # 检查命名空间
+        if not root.tag.startswith('{http://www.spiritconsortium.org/XMLSchema/SPIRIT/'):
+            return False, "不是有效的 IPXACT 命名空间"
+            
+        # 检查必需的元素
+        required_elements = ['name', 'version', 'vendor']
+        for elem in required_elements:
+            if root.find(f'spirit:{elem}', ns) is None:
+                return False, f"缺少必需元素: {elem}"
+                
+        return True, "有效的 IPXACT 文件"
+        
+    except ET.ParseError as e:
+        return False, f"XML 解析错误: {str(e)}"
+    except FileNotFoundError:
+        return False, "文件不存在"
+    except Exception as e:
+        return False, f"未知错误: {str(e)}"
 
 def file_to_html(file_path):
     ext = os.path.splitext(file_path)[1].lower()
@@ -59,6 +104,27 @@ def file_to_html(file_path):
             encoded = base64.b64encode(f.read()).decode('utf-8')
         mime = mimetypes.guess_type(file_path)[0]
         return f'<img src="data:{mime};base64,{encoded}" alt="image" />'
+
+    elif ext == '.xml':
+        is_ipxact, reason = is_ipxact_file(file_path)
+        if is_ipxact:
+            # 处理 IPXACT 文件
+            visualizer = IPXACTVisualizer(file_path)
+            status, result = visualizer.generate_single_file_html(file_path, file_path + '.html')
+            if status == 'ok':
+                with open(result, 'r', encoding='utf-8') as f:
+                    return f.read()
+            else:
+                return f"<p>⚠️ IPXACT 文件处理失败: {result}</p>"
+        else:
+            # 处理普通 XML 文件
+            try:
+                tree = ET.parse(file_path)
+                root = tree.getroot()
+                xml_str = ET.tostring(root, encoding='unicode')
+                return f"<pre>{xml_str}</pre>"
+            except Exception as e:
+                return f"<p>⚠️ XML 文件处理失败: {str(e)}</p>"
 
     else:
         return f"<p>⚠️ 不支持的文件类型: {ext}</p>"
