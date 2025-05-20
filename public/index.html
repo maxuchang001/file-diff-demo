@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>目录差异对比工具</title>
+    <title>Directory Difference Comparison Tool</title>
     <style>
         :root {
             --primary-color: #4a90e2;
@@ -209,53 +209,53 @@
 <body>
     <div class="container">
         <div class="header">
-            <h1>目录差异对比工具</h1>
-            <p>拖拽两个目录到下方区域进行差异对比</p>
+            <h1>Directory Difference Comparison Tool</h1>
+            <p>Drag and drop two directories below to compare differences</p>
         </div>
 
         <div class="upload-section">
             <div class="dir-card">
-                <div class="filename" id="dir1-name">目录 1</div>
+                <div class="filename" id="dir1-name">Directory 1</div>
                 <div class="drop-zone" id="drop-zone-1">
                     <i>📁</i>
-                    <span>拖拽目录到这里</span>
+                    <span>Drag directory here</span>
                     <div class="path" id="dir1-path"></div>
                 </div>
             </div>
 
             <div class="dir-card">
-                <div class="filename" id="dir2-name">目录 2</div>
+                <div class="filename" id="dir2-name">Directory 2</div>
                 <div class="drop-zone" id="drop-zone-2">
                     <i>📁</i>
-                    <span>拖拽目录到这里</span>
+                    <span>Drag directory here</span>
                     <div class="path" id="dir2-path"></div>
                 </div>
             </div>
         </div>
 
-        <button onclick="compareDirectories()" id="compare-btn">开始对比</button>
+        <button onclick="compareDirectories()" id="compare-btn">Start Comparison</button>
 
         <div class="comparison-result" id="comparison-result" style="display: none;">
             <div class="stats" id="stats"></div>
             <div class="result-section">
-                <h3>新增文件</h3>
+                <h3>Added Files</h3>
                 <ul class="file-list" id="added-files"></ul>
             </div>
             <div class="result-section">
-                <h3>删除文件</h3>
+                <h3>Removed Files</h3>
                 <ul class="file-list" id="removed-files"></ul>
             </div>
             <div class="result-section">
-                <h3>修改文件</h3>
+                <h3>Modified Files</h3>
                 <ul class="file-list" id="modified-files"></ul>
             </div>
             <div class="result-section">
-                <h3>未变文件</h3>
+                <h3>Unchanged Files</h3>
                 <ul class="file-list" id="unchanged-files"></ul>
             </div>
         </div>
         <div id="diff-viewer" style="display:none;">
-            <button onclick="closeDiffViewer()" style="margin-bottom: 10px;">返回</button>
+            <button onclick="closeDiffViewer()" style="margin-bottom: 10px;">Back</button>
             <iframe id="diff-frame" style="width:100%;height:80vh;border:none;background:white;"></iframe>
         </div>
     </div>
@@ -349,7 +349,7 @@
                                 dir2Files = await readAllFiles(entry, '');
                             }
                         } else {
-                            alert('请拖拽文件夹而不是文件');
+                            alert('Please drag a folder, not a file');
                         }
                     }
                 }
@@ -361,13 +361,13 @@
 
         async function compareDirectories() {
             if (!dir1Files.length || !dir2Files.length) {
-                alert('请选择两个目录');
+                alert('Please select two directories');
                 return;
             }
             const btn = document.getElementById('compare-btn');
             try {
                 btn.disabled = true;
-                btn.textContent = '处理中...';
+                btn.textContent = 'Processing...';
                 const formData = new FormData();
                 dir1Files.forEach(file => {
                     formData.append('dir1', file, file.relativePath);
@@ -381,14 +381,14 @@
                 });
                 const result = await response.json();
                 if (!response.ok) {
-                    throw new Error(result.error || '比较失败');
+                    throw new Error(result.error || 'Comparison failed');
                 }
                 displayResults(result);
             } catch (error) {
-                alert('错误: ' + error.message);
+                alert('Error: ' + error.message);
             } finally {
                 btn.disabled = false;
-                btn.textContent = '开始对比';
+                btn.textContent = 'Start Comparison';
             }
         }
 
@@ -399,7 +399,7 @@
                 const file1 = dir1Files.find(f => f.relativePath === filePath);
                 const file2 = dir2Files.find(f => f.relativePath === filePath);
                 if (!file1 || !file2) {
-                    throw new Error('两个目录都需要有该文件');
+                    throw new Error('Both directories must contain this file');
                 }
                 // 调试输出
                 console.log('File1:', file1.relativePath, file1.name);
@@ -424,7 +424,7 @@
                 });
                 const result = await response.json();
                 if (!response.ok) {
-                    throw new Error(result.error || '文件比较失败');
+                    throw new Error(result.error || 'Comparison failed');
                 }
                 if (result.status === 'ok') {
                     // 页面内展示对比报告
@@ -441,7 +441,7 @@
                     alert(result.message || '不支持的文件类型');
                 }
             } catch (error) {
-                alert('错误: ' + error.message);
+                alert('Error: ' + error.message);
             }
         }
 
@@ -459,19 +459,19 @@
             const stats = result.stats;
             document.getElementById('stats').innerHTML = `
                 <div class="stat-card">
-                    <h4>新增文件</h4>
+                    <h4>Added Files</h4>
                     <div class="number">${stats.only_in_dir2}</div>
                 </div>
                 <div class="stat-card">
-                    <h4>删除文件</h4>
+                    <h4>Removed Files</h4>
                     <div class="number">${stats.only_in_dir1}</div>
                 </div>
                 <div class="stat-card">
-                    <h4>修改文件</h4>
+                    <h4>Modified Files</h4>
                     <div class="number">${stats.different}</div>
                 </div>
                 <div class="stat-card">
-                    <h4>未变文件</h4>
+                    <h4>Unchanged Files</h4>
                     <div class="number">${stats.identical}</div>
                 </div>
             `;
