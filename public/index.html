@@ -148,6 +148,9 @@
         .file-item.clickable {
             cursor: pointer;
             transition: background-color 0.2s;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
         }
 
         .file-item.clickable:hover {
@@ -156,6 +159,22 @@
 
         .file-item i {
             margin-right: 0.5rem;
+        }
+
+        .view-link {
+            color: var(--primary-color);
+            text-decoration: none;
+            margin-left: 10px;
+            font-size: 0.9rem;
+        }
+
+        .view-link:hover {
+            text-decoration: underline;
+        }
+
+        .file-content {
+            display: flex;
+            align-items: center;
         }
 
         .added {
@@ -265,6 +284,17 @@
         let dir2Files = [];
         let dir1Name = '';
         let dir2Name = '';
+
+        // 添加页面卸载时的清理代码
+        window.addEventListener('beforeunload', async function() {
+            try {
+                await fetch('/api/cleanup', {
+                    method: 'POST'
+                });
+            } catch (error) {
+                console.error('Cleanup failed:', error);
+            }
+        });
 
         // 递归读取文件夹下所有文件
         function readAllFiles(entry, path = '') {
@@ -383,6 +413,8 @@
                 if (!response.ok) {
                     throw new Error(result.error || 'Comparison failed');
                 }
+                // 保存临时目录路径
+                window.tempDirs = result.temp_dirs;
                 displayResults(result);
             } catch (error) {
                 alert('Error: ' + error.message);
@@ -445,6 +477,32 @@
             }
         }
 
+        function viewFile(file, type) {
+            // 根据文件类型和比较结果获取正确的文件路径
+            if (type === 'modified') {
+                // 对于修改的文件，使用差异比较功能
+                compareFile(file);
+            } else {
+                // 对于其他类型的文件，使用单文件查看
+                let filePath;
+                if (type === 'added') {
+                    filePath = `/api/view_file?file=${encodeURIComponent(file)}&dir=dir2`;
+                } else if (type === 'removed') {
+                    filePath = `/api/view_file?file=${encodeURIComponent(file)}&dir=dir1`;
+                } else if (type === 'unchanged') {
+                    filePath = `/api/view_file?file=${encodeURIComponent(file)}&dir=dir1`;
+                }
+
+                if (filePath) {
+                    // 在页面内显示文件内容
+                    document.getElementById('comparison-result').style.display = 'none';
+                    document.getElementById('diff-viewer').style.display = 'block';
+                    const diffFrame = document.getElementById('diff-frame');
+                    diffFrame.src = filePath;
+                }
+            }
+        }
+
         function closeDiffViewer() {
             document.getElementById('diff-viewer').style.display = 'none';
             document.getElementById('diff-frame').src = '';
@@ -480,32 +538,63 @@
             const results = result.comparison_results;
             
             // 新增文件
-            document.getElementById('added-files').innerHTML = results.only_in_dir2
-                .map(file => `<li class="file-item added"><i>➕</i>${file}</li>`)
-                .join('');
+            const addedFilesList = document.getElementById('added-files');
+            addedFilesList.innerHTML = '';
+            results.only_in_dir2.forEach(file => {
+                addedFilesList.appendChild(createFileItem(file, 'added'));
+            });
 
             // 删除文件
-            document.getElementById('removed-files').innerHTML = results.only_in_dir1
-                .map(file => `<li class="file-item removed"><i>➖</i>${file}</li>`)
-                .join('');
+            const removedFilesList = document.getElementById('removed-files');
+            removedFilesList.innerHTML = '';
+            results.only_in_dir1.forEach(file => {
+                removedFilesList.appendChild(createFileItem(file, 'removed'));
+            });
 
-            // 修改文件 - 添加点击事件
-            document.getElementById('modified-files').innerHTML = results.different
-                .map(file => {
-                    const ext = file.split('.').pop().toLowerCase();
-                    const isPdf = ext === 'pdf';
-                    const isText = ['.txt', '.py', '.c', '.cpp', '.h', '.hpp', '.java', '.js', '.html', '.css', '.json', '.xml', '.md', '.csv'].includes('.' + ext);
-                    return `<li class="file-item modified ${(isPdf || isText) ? 'clickable' : ''}" 
-                        ${(isPdf || isText) ? `onclick="compareFile('${file}')"` : ''}>
-                        <i>📝</i>${file}
-                    </li>`;
-                })
-                .join('');
+            // 修改文件
+            const modifiedFilesList = document.getElementById('modified-files');
+            modifiedFilesList.innerHTML = '';
+            results.different.forEach(file => {
+                modifiedFilesList.appendChild(createFileItem(file, 'modified'));
+            });
 
             // 未变文件
-            document.getElementById('unchanged-files').innerHTML = results.identical
-                .map(file => `<li class="file-item unchanged"><i>✓</i>${file}</li>`)
-                .join('');
+            const unchangedFilesList = document.getElementById('unchanged-files');
+            unchangedFilesList.innerHTML = '';
+            results.identical.forEach(file => {
+                unchangedFilesList.appendChild(createFileItem(file, 'unchanged'));
+            });
+        }
+
+        function createFileItem(file, type) {
+            const li = document.createElement('li');
+            li.className = `file-item ${type} clickable`;
+            
+            const contentDiv = document.createElement('div');
+            contentDiv.className = 'file-content';
+            
+            const icon = document.createElement('i');
+            icon.textContent = '📄';
+            contentDiv.appendChild(icon);
+            
+            const text = document.createElement('span');
+            text.textContent = file;
+            contentDiv.appendChild(text);
+            
+            li.appendChild(contentDiv);
+
+            // 添加查看链接
+            const viewLink = document.createElement('a');
+            viewLink.href = '#';
+            viewLink.className = 'view-link';
+            viewLink.textContent = '查看文件';
+            viewLink.onclick = (e) => {
+                e.preventDefault();
+                viewFile(file, type);
+            };
+            li.appendChild(viewLink);
+
+            return li;
         }
     </script>
 </body>

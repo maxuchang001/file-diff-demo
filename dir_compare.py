@@ -3,6 +3,7 @@ import hashlib
 import json
 from datetime import datetime
 from typing import List, Dict, Optional, Union
+from file2html import convert_to_html
 
 class DirectoryComparator:
     """目录比较工具类，用于比较两个目录的差异"""
@@ -132,6 +133,8 @@ class DirectoryComparator:
             f.write('.different { color: orange; }\n')
             f.write('.only-in-dir1 { color: blue; }\n')
             f.write('.only-in-dir2 { color: red; }\n')
+            f.write('.view-link { color: #0066cc; text-decoration: none; margin-left: 10px; }\n')
+            f.write('.view-link:hover { text-decoration: underline; }\n')
             f.write('</style>\n')
             f.write('</head>\n<body>\n')
             f.write('<h1>目录比较结果</h1>\n')
@@ -146,12 +149,22 @@ class DirectoryComparator:
                     f.write(f'<div class="section">\n')
                     f.write(f'<h2 class="only-in-dir1">仅在目录1中: {rel_path}</h2>\n')
                     f.write(f'<p>大小: {self.dir1_contents[rel_path]["size"]} bytes</p>\n')
+                    # 生成文件1的HTML版本
+                    status, html_path = convert_to_html(self.dir1_contents[rel_path]['path'])
+                    if status == 'ok':
+                        rel_html_path = os.path.relpath(html_path, os.path.join(os.path.dirname(__file__), 'static'))
+                        f.write(f'<a href="/{rel_html_path}" class="view-link" target="_blank">查看文件</a>\n')
                     f.write(f'</div>\n')
                 elif in_dir2 and not in_dir1:
                     self.comparison_results['only_in_dir2'].append(rel_path)
                     f.write(f'<div class="section">\n')
                     f.write(f'<h2 class="only-in-dir2">仅在目录2中: {rel_path}</h2>\n')
                     f.write(f'<p>大小: {self.dir2_contents[rel_path]["size"]} bytes</p>\n')
+                    # 生成文件2的HTML版本
+                    status, html_path = convert_to_html(self.dir2_contents[rel_path]['path'])
+                    if status == 'ok':
+                        rel_html_path = os.path.relpath(html_path, os.path.join(os.path.dirname(__file__), 'static'))
+                        f.write(f'<a href="/{rel_html_path}" class="view-link" target="_blank">查看文件</a>\n')
                     f.write(f'</div>\n')
                 else:
                     if self.dir1_contents[rel_path]['type'] == 'directory' and self.dir2_contents[rel_path]['type'] == 'directory':
@@ -164,6 +177,11 @@ class DirectoryComparator:
                             f.write(f'<div class="section">\n')
                             f.write(f'<h2 class="identical">相同文件: {rel_path}</h2>\n')
                             f.write(f'<p>大小: {self.dir1_contents[rel_path]["size"]} bytes</p>\n')
+                            # 生成文件1的HTML版本
+                            status, html_path = convert_to_html(self.dir1_contents[rel_path]['path'])
+                            if status == 'ok':
+                                rel_html_path = os.path.relpath(html_path, os.path.join(os.path.dirname(__file__), 'static'))
+                                f.write(f'<a href="/{rel_html_path}" class="view-link" target="_blank">查看文件</a>\n')
                             f.write(f'</div>\n')
                         else:
                             self.comparison_results['different'].append(rel_path)
@@ -171,6 +189,15 @@ class DirectoryComparator:
                             f.write(f'<h2 class="different">不同文件: {rel_path}</h2>\n')
                             f.write(f'<p>目录1大小: {self.dir1_contents[rel_path]["size"]} bytes</p>\n')
                             f.write(f'<p>目录2大小: {self.dir2_contents[rel_path]["size"]} bytes</p>\n')
+                            # 生成两个文件的HTML版本
+                            status1, html_path1 = convert_to_html(self.dir1_contents[rel_path]['path'])
+                            status2, html_path2 = convert_to_html(self.dir2_contents[rel_path]['path'])
+                            if status1 == 'ok':
+                                rel_html_path1 = os.path.relpath(html_path1, os.path.join(os.path.dirname(__file__), 'static'))
+                                f.write(f'<a href="/{rel_html_path1}" class="view-link" target="_blank">查看目录1文件</a>\n')
+                            if status2 == 'ok':
+                                rel_html_path2 = os.path.relpath(html_path2, os.path.join(os.path.dirname(__file__), 'static'))
+                                f.write(f'<a href="/{rel_html_path2}" class="view-link" target="_blank">查看目录2文件</a>\n')
                             f.write(f'</div>\n')
                     else:
                         self.comparison_results['different'].append(rel_path)
