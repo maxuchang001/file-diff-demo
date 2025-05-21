@@ -413,14 +413,13 @@
         fileInput2.style.display = 'none';
         document.body.appendChild(fileInput2);
 
-        // 处理第一个上传区域的点击事件
+        // 修改第一个上传区域的点击事件
         document.getElementById('drop-zone-1').addEventListener('click', () => {
-            if (!uploadType1) {
-                // 如果还没有选择上传类型，显示选择框
+            if (dir1Files.length === 0) {
+                currentUploadZone = 'zone1'; // 设置当前操作区域
                 const modal = document.getElementById('upload-type-modal');
                 modal.classList.add('active');
             } else {
-                // 如果已经选择了上传类型，直接打开文件选择器
                 if (uploadType1 === 'directory') {
                     fileInput1.setAttribute('webkitdirectory', '');
                     fileInput1.setAttribute('directory', '');
@@ -432,13 +431,13 @@
             }
         });
 
-        // 处理第二个上传区域的点击事件
+        // 修改第二个上传区域的点击事件
         document.getElementById('drop-zone-2').addEventListener('click', () => {
-            if (!uploadType2) {
-                // 如果第一个区域已经上传，直接使用相同的类型
-                if (firstUploadType) {
-                    uploadType2 = firstUploadType;
-                    if (firstUploadType === 'directory') {
+            if (dir2Files.length === 0) {
+                if (dir1Files.length > 0) {
+                    // 如果第一个区域已经有文件，使用相同的类型
+                    uploadType2 = uploadType1;
+                    if (uploadType1 === 'directory') {
                         fileInput2.setAttribute('webkitdirectory', '');
                         fileInput2.setAttribute('directory', '');
                     } else {
@@ -447,12 +446,11 @@
                     }
                     fileInput2.click();
                 } else {
-                    // 如果第一个区域还没有上传，显示选择框
+                    currentUploadZone = 'zone2'; // 设置当前操作区域
                     const modal = document.getElementById('upload-type-modal');
                     modal.classList.add('active');
                 }
             } else {
-                // 如果已经选择了上传类型，直接打开文件选择器
                 if (uploadType2 === 'directory') {
                     fileInput2.setAttribute('webkitdirectory', '');
                     fileInput2.setAttribute('directory', '');
@@ -464,48 +462,18 @@
             }
         });
 
-        // 处理选择框按钮点击
-        const modal = document.getElementById('upload-type-modal');
-        modal.querySelectorAll('.upload-type-btn').forEach(btn => {
-            btn.addEventListener('click', () => {
-                const type = btn.dataset.type;
-                modal.classList.remove('active');
-                
-                // 根据当前激活的上传区域设置类型
-                if (!uploadType1) {
-                    uploadType1 = type;
-                    if (type === 'directory') {
-                        fileInput1.setAttribute('webkitdirectory', '');
-                        fileInput1.setAttribute('directory', '');
-                    } else {
-                        fileInput1.removeAttribute('webkitdirectory');
-                        fileInput1.removeAttribute('directory');
-                    }
-                    fileInput1.click();
-                } else if (!uploadType2) {
-                    uploadType2 = type;
-                    if (type === 'directory') {
-                        fileInput2.setAttribute('webkitdirectory', '');
-                        fileInput2.setAttribute('directory', '');
-                    } else {
-                        fileInput2.removeAttribute('webkitdirectory');
-                        fileInput2.removeAttribute('directory');
-                    }
-                    fileInput2.click();
-                }
-            });
-        });
-
-        // 点击模态框背景关闭
-        modal.addEventListener('click', (e) => {
-            if (e.target === modal) {
-                modal.classList.remove('active');
-            }
-        });
-
         // 处理第一个文件输入框的变化
         fileInput1.addEventListener('change', function(e) {
-            if (this.files.length === 0) return;
+            if (this.files.length === 0) {
+                // 用户取消选择，清空所有相关数据
+                uploadType1 = null;
+                firstUploadType = null;
+                firstUploadExt = null;
+                document.getElementById('dir1-path').textContent = '';
+                dir1Name = '';
+                dir1Files = [];
+                return;
+            }
             
             const file = this.files[0];
             if (uploadType1 === 'directory') {
@@ -533,12 +501,23 @@
 
         // 处理第二个文件输入框的变化
         fileInput2.addEventListener('change', function(e) {
-            if (this.files.length === 0) return;
+            if (this.files.length === 0) {
+                // 用户取消选择，清空所有相关数据
+                uploadType2 = null;
+                document.getElementById('dir2-path').textContent = '';
+                dir2Name = '';
+                dir2Files = [];
+                return;
+            }
             
             const file = this.files[0];
             if (uploadType2 === 'directory') {
                 if (!file.webkitRelativePath) {
                     alert('请上传文件夹作为第二个项目');
+                    uploadType2 = null;
+                    document.getElementById('dir2-path').textContent = '';
+                    dir2Name = '';
+                    dir2Files = [];
                     return;
                 }
                 document.getElementById('dir2-path').textContent = file.webkitRelativePath.split('/')[0];
@@ -552,12 +531,20 @@
             } else {
                 if (file.webkitRelativePath) {
                     alert('请上传文件作为第二个项目');
+                    uploadType2 = null;
+                    document.getElementById('dir2-path').textContent = '';
+                    dir2Name = '';
+                    dir2Files = [];
                     return;
                 }
                 const fileName = file.name;
                 const fileExt = fileName.split('.').pop().toLowerCase();
                 if (firstUploadType === 'file' && fileExt !== firstUploadExt) {
                     alert(`请上传相同扩展名的文件 (.${firstUploadExt})`);
+                    uploadType2 = null;
+                    document.getElementById('dir2-path').textContent = '';
+                    dir2Name = '';
+                    dir2Files = [];
                     return;
                 }
                 document.getElementById('dir2-path').textContent = fileName;
@@ -565,6 +552,48 @@
                 dir2Files = [file];
             }
             this.value = ''; // 清空输入框
+        });
+
+        // 处理选择框按钮点击
+        const modal = document.getElementById('upload-type-modal');
+        let currentUploadZone = null; // 添加变量记录当前操作的上传区域
+
+        modal.querySelectorAll('.upload-type-btn').forEach(btn => {
+            btn.addEventListener('click', () => {
+                const type = btn.dataset.type;
+                modal.classList.remove('active');
+                
+                // 根据当前激活的上传区域设置类型
+                if (currentUploadZone === 'zone1') {
+                    uploadType1 = type;
+                    if (type === 'directory') {
+                        fileInput1.setAttribute('webkitdirectory', '');
+                        fileInput1.setAttribute('directory', '');
+                    } else {
+                        fileInput1.removeAttribute('webkitdirectory');
+                        fileInput1.removeAttribute('directory');
+                    }
+                    fileInput1.click();
+                } else if (currentUploadZone === 'zone2') {
+                    uploadType2 = type;
+                    if (type === 'directory') {
+                        fileInput2.setAttribute('webkitdirectory', '');
+                        fileInput2.setAttribute('directory', '');
+                    } else {
+                        fileInput2.removeAttribute('webkitdirectory');
+                        fileInput2.removeAttribute('directory');
+                    }
+                    fileInput2.click();
+                }
+                currentUploadZone = null; // 重置当前操作区域
+            });
+        });
+
+        // 点击模态框背景关闭
+        modal.addEventListener('click', (e) => {
+            if (e.target === modal) {
+                modal.classList.remove('active');
+            }
         });
 
         // 递归读取文件夹下所有文件
