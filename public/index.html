@@ -66,6 +66,7 @@
             background-color: white;
             margin-bottom: 20px;
             cursor: pointer;
+            position: relative;
         }
 
         .drop-zone.dragover {
@@ -221,6 +222,7 @@
             cursor: pointer;
             font-size: 16px;
             transition: background-color 0.3s;
+            display: none;
         }
 
         #compare-btn:hover {
@@ -259,30 +261,105 @@
                 grid-template-columns: 1fr;
             }
         }
+
+        .upload-type-modal {
+            display: none;
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background-color: rgba(0, 0, 0, 0.5);
+            z-index: 1000;
+            justify-content: center;
+            align-items: center;
+        }
+
+        .upload-type-modal.active {
+            display: flex;
+        }
+
+        .upload-type-content {
+            background: white;
+            padding: 30px;
+            border-radius: 8px;
+            text-align: center;
+            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+            max-width: 400px;
+            width: 90%;
+        }
+
+        .upload-type-title {
+            font-size: 1.2em;
+            margin-bottom: 20px;
+            color: var(--text-color);
+        }
+
+        .upload-type-buttons {
+            display: flex;
+            gap: 15px;
+            justify-content: center;
+        }
+
+        .upload-type-btn {
+            padding: 10px 20px;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 1em;
+            transition: all 0.3s ease;
+            flex: 1;
+            max-width: 150px;
+        }
+
+        .upload-type-btn.file {
+            background-color: var(--primary-color);
+            color: white;
+        }
+
+        .upload-type-btn.directory {
+            background-color: var(--secondary-color);
+            color: white;
+        }
+
+        .upload-type-btn:hover {
+            opacity: 0.9;
+            transform: translateY(-2px);
+        }
     </style>
 </head>
 <body>
     <div class="container">
+        <div class="upload-type-modal" id="upload-type-modal">
+            <div class="upload-type-content">
+                <div class="upload-type-title">请选择上传类型</div>
+                <div class="upload-type-buttons">
+                    <button class="upload-type-btn file" data-type="file">上传文件</button>
+                    <button class="upload-type-btn directory" data-type="directory">上传文件夹</button>
+                </div>
+            </div>
+        </div>
+
         <div class="header">
             <h1>Directory Difference Comparison Tool</h1>
             <p>Drag and drop two directories below to compare differences</p>
         </div>
 
         <div class="upload-section">
-            <div class="dir-card">
-                <div class="filename" id="dir1-name">Directory 1</div>
+            <div class="dir-card" id="dir1-card">
+                <div class="filename" id="dir1-name">First Item</div>
                 <div class="drop-zone" id="drop-zone-1">
                     <i>📁</i>
-                    <span>Drag directory here</span>
+                    <span>Drag a directory or file here</span>
                     <div class="path" id="dir1-path"></div>
                 </div>
             </div>
 
-            <div class="dir-card">
-                <div class="filename" id="dir2-name">Directory 2</div>
+            <div class="dir-card" id="dir2-card" style="display: none;">
+                <div class="filename" id="dir2-name">Second Item</div>
                 <div class="drop-zone" id="drop-zone-2">
                     <i>📁</i>
-                    <span>Drag directory here</span>
+                    <span>Drag a matching item here</span>
                     <div class="path" id="dir2-path"></div>
                 </div>
             </div>
@@ -320,6 +397,8 @@
         let dir2Files = [];
         let dir1Name = '';
         let dir2Name = '';
+        let firstUploadType = null; // 'directory' or 'file'
+        let firstUploadExt = null; // 如果是文件,保存文件扩展名
 
         // 添加页面卸载时的清理代码
         window.addEventListener('beforeunload', async function() {
@@ -370,6 +449,14 @@
         function setupDropZone(elementId, pathId, dirNum) {
             const dropZone = document.getElementById(elementId);
             const pathElement = document.getElementById(pathId);
+            const modal = document.getElementById('upload-type-modal');
+            let currentFileInput = null;
+
+            // 添加文件输入元素
+            const fileInput = document.createElement('input');
+            fileInput.type = 'file';
+            fileInput.style.display = 'none';
+            dropZone.appendChild(fileInput);
 
             ['dragenter', 'dragover', 'dragleave', 'drop'].forEach(eventName => {
                 dropZone.addEventListener(eventName, preventDefaults, false);
@@ -396,6 +483,50 @@
                 dropZone.classList.remove('dragover');
             }
 
+            // 处理选择框按钮点击
+            modal.querySelectorAll('.upload-type-btn').forEach(btn => {
+                btn.addEventListener('click', () => {
+                    const type = btn.dataset.type;
+                    modal.classList.remove('active');
+                    
+                    if (type === 'directory') {
+                        currentFileInput.setAttribute('webkitdirectory', '');
+                        currentFileInput.setAttribute('directory', '');
+                    } else {
+                        currentFileInput.removeAttribute('webkitdirectory');
+                        currentFileInput.removeAttribute('directory');
+                    }
+                    currentFileInput.click();
+                });
+            });
+
+            // 处理点击上传
+            dropZone.addEventListener('click', () => {
+                if (dirNum === 1) {
+                    // 第一次上传，显示选择框
+                    currentFileInput = fileInput;
+                    modal.classList.add('active');
+                } else {
+                    // 第二次上传，根据第一次上传的类型设置
+                    if (firstUploadType === 'directory') {
+                        fileInput.setAttribute('webkitdirectory', '');
+                        fileInput.setAttribute('directory', '');
+                    } else {
+                        fileInput.removeAttribute('webkitdirectory');
+                        fileInput.removeAttribute('directory');
+                    }
+                    fileInput.click();
+                }
+            });
+
+            // 点击模态框背景关闭
+            modal.addEventListener('click', (e) => {
+                if (e.target === modal) {
+                    modal.classList.remove('active');
+                }
+            });
+
+            // 处理拖拽上传
             dropZone.addEventListener('drop', async function(e) {
                 const dt = e.dataTransfer;
                 const items = dt.items;
@@ -403,23 +534,108 @@
                     const item = items[0];
                     if (item.kind === 'file') {
                         const entry = item.webkitGetAsEntry();
-                        if (entry && entry.isDirectory) {
-                            pathElement.textContent = entry.name;
+                        if (entry) {
                             if (dirNum === 1) {
-                                dir1Name = entry.name;
-                                // 从根目录开始读取，但不包含根目录名称
-                                dir1Files = await readAllFiles(entry, '');
+                                // 第一次上传
+                                if (entry.isDirectory) {
+                                    firstUploadType = 'directory';
+                                    pathElement.textContent = entry.name;
+                                    dir1Name = entry.name;
+                                    dir1Files = await readAllFiles(entry, '');
+                                    document.getElementById('dir2-card').style.display = 'block';
+                                } else if (entry.isFile) {
+                                    firstUploadType = 'file';
+                                    const fileName = entry.name;
+                                    const fileExt = fileName.split('.').pop().toLowerCase();
+                                    firstUploadExt = fileExt;
+                                    pathElement.textContent = fileName;
+                                    dir1Name = fileName;
+                                    dir1Files = [await new Promise(resolve => entry.file(resolve))];
+                                    document.getElementById('dir2-card').style.display = 'block';
+                                }
                             } else {
-                                dir2Name = entry.name;
-                                // 从根目录开始读取，但不包含根目录名称
-                                dir2Files = await readAllFiles(entry, '');
+                                // 第二次上传
+                                if (firstUploadType === 'directory' && !entry.isDirectory) {
+                                    alert('Please upload a directory as the second item');
+                                    return;
+                                } else if (firstUploadType === 'file') {
+                                    if (!entry.isFile) {
+                                        alert('Please upload a file as the second item');
+                                        return;
+                                    }
+                                    const fileName = entry.name;
+                                    const fileExt = fileName.split('.').pop().toLowerCase();
+                                    if (fileExt !== firstUploadExt) {
+                                        alert(`Please upload a file with the same extension (.${firstUploadExt})`);
+                                        return;
+                                    }
+                                    pathElement.textContent = fileName;
+                                    dir2Name = fileName;
+                                    dir2Files = [await new Promise(resolve => entry.file(resolve))];
+                                } else if (entry.isDirectory) {
+                                    pathElement.textContent = entry.name;
+                                    dir2Name = entry.name;
+                                    dir2Files = await readAllFiles(entry, '');
+                                }
+                                // 显示比较按钮
+                                document.getElementById('compare-btn').style.display = 'block';
                             }
-                        } else {
-                            alert('Please drag a folder, not a file');
                         }
                     }
                 }
             }, false);
+
+            // 处理文件选择
+            fileInput.addEventListener('change', async function(e) {
+                if (this.files.length > 0) {
+                    const file = this.files[0];
+                    if (dirNum === 1) {
+                        // 第一次上传
+                        if (file.webkitRelativePath) {  // 是文件夹
+                            firstUploadType = 'directory';
+                            pathElement.textContent = file.webkitRelativePath.split('/')[0];
+                            dir1Name = file.webkitRelativePath.split('/')[0];
+                            dir1Files = Array.from(this.files);
+                            document.getElementById('dir2-card').style.display = 'block';
+                        } else {  // 是文件
+                            firstUploadType = 'file';
+                            const fileName = file.name;
+                            const fileExt = fileName.split('.').pop().toLowerCase();
+                            firstUploadExt = fileExt;
+                            pathElement.textContent = fileName;
+                            dir1Name = fileName;
+                            dir1Files = [file];
+                            document.getElementById('dir2-card').style.display = 'block';
+                        }
+                    } else {
+                        // 第二次上传
+                        if (firstUploadType === 'directory' && !file.webkitRelativePath) {
+                            alert('Please upload a directory as the second item');
+                            return;
+                        } else if (firstUploadType === 'file') {
+                            if (file.webkitRelativePath) {
+                                alert('Please upload a file as the second item');
+                                return;
+                            }
+                            const fileName = file.name;
+                            const fileExt = fileName.split('.').pop().toLowerCase();
+                            if (fileExt !== firstUploadExt) {
+                                alert(`Please upload a file with the same extension (.${firstUploadExt})`);
+                                return;
+                            }
+                            pathElement.textContent = fileName;
+                            dir2Name = fileName;
+                            dir2Files = [file];
+                        } else if (file.webkitRelativePath) {
+                            pathElement.textContent = file.webkitRelativePath.split('/')[0];
+                            dir2Name = file.webkitRelativePath.split('/')[0];
+                            dir2Files = Array.from(this.files);
+                        }
+                        // 显示比较按钮
+                        document.getElementById('compare-btn').style.display = 'block';
+                    }
+                }
+            });
         }
 
         setupDropZone('drop-zone-1', 'dir1-path', 1);
@@ -435,12 +651,25 @@
                 btn.disabled = true;
                 btn.textContent = 'Processing...';
                 const formData = new FormData();
-                dir1Files.forEach(file => {
-                    formData.append('dir1', file, file.relativePath);
-                });
-                dir2Files.forEach(file => {
-                    formData.append('dir2', file, file.relativePath);
-                });
+                
+                // 判断是否是单文件比对
+                if (firstUploadType === 'file') {
+                    // 单文件比对
+                    formData.append('file1', dir1Files[0]);
+                    formData.append('file2', dir2Files[0]);
+                    formData.append('file1_name', dir1Name);
+                    formData.append('file2_name', dir2Name);
+                    formData.append('is_single_file', 'true');
+                } else {
+                    // 文件夹比对
+                    dir1Files.forEach(file => {
+                        formData.append('dir1', file, file.relativePath);
+                    });
+                    dir2Files.forEach(file => {
+                        formData.append('dir2', file, file.relativePath);
+                    });
+                }
+
                 const response = await fetch('/api/compare', {
                     method: 'POST',
                     body: formData
@@ -464,21 +693,15 @@
             try {
                 const formData = new FormData();
                 // 分别取自两个目录
-                const file1 = dir1Files.find(f => f.relativePath === filePath);
-                const file2 = dir2Files.find(f => f.relativePath === filePath);
+                const file1 = dir1Files[0];  // 单文件比对时直接使用第一个文件
+                const file2 = dir2Files[0];  // 单文件比对时直接使用第二个文件
+                
                 if (!file1 || !file2) {
-                    throw new Error('Both directories must contain this file');
+                    throw new Error('Both files must be present');
                 }
-                // 调试输出
-                console.log('File1:', file1.relativePath, file1.name);
-                console.log('File2:', file2.relativePath, file2.name);
                 
-                // 创建新的 File 对象
-                const file1Blob = new File([file1], file1.name, { type: file1.type });
-                const file2Blob = new File([file2], file2.name, { type: file2.type });
-                
-                formData.append('file1', file1Blob);
-                formData.append('file2', file2Blob);
+                formData.append('file1', file1);
+                formData.append('file2', file2);
                 formData.append('file1_name', dir1Name);
                 formData.append('file2_name', dir2Name);
                 
@@ -501,10 +724,6 @@
                     const diffFrame = document.getElementById('diff-frame');
                     // 直接使用返回的URL
                     diffFrame.src = result.diff_url;
-                    // 添加加载事件监听
-                    diffFrame.onload = function() {
-                        console.log('差异对比页面已加载');
-                    };
                 } else {
                     alert(result.message || '不支持的文件类型');
                 }
@@ -513,29 +732,23 @@
             }
         }
 
-        function viewFile(file, type) {
-            // 根据文件类型和比较结果获取正确的文件路径
-            if (type === 'modified') {
-                // 对于修改的文件，使用差异比较功能
-                compareFile(file);
-            } else {
-                // 对于其他类型的文件，使用单文件查看
-                let filePath;
-                if (type === 'added') {
-                    filePath = `/api/view_file?file=${encodeURIComponent(file)}&dir=dir2&temp_dir=${encodeURIComponent(window.tempDirs.dir2)}`;
-                } else if (type === 'removed') {
-                    filePath = `/api/view_file?file=${encodeURIComponent(file)}&dir=dir1&temp_dir=${encodeURIComponent(window.tempDirs.dir1)}`;
-                } else if (type === 'unchanged') {
-                    filePath = `/api/view_file?file=${encodeURIComponent(file)}&dir=dir1&temp_dir=${encodeURIComponent(window.tempDirs.dir1)}`;
+        async function viewFile(file, type) {
+            try {
+                const tempDir = window.tempDirs[type];
+                if (!tempDir) {
+                    throw new Error('Temporary directory not found');
                 }
-
-                if (filePath) {
-                    // 在页面内显示文件内容
-                    document.getElementById('comparison-result').style.display = 'none';
-                    document.getElementById('diff-viewer').style.display = 'block';
-                    const diffFrame = document.getElementById('diff-frame');
-                    diffFrame.src = filePath;
-                }
+                
+                // 构建查看文件的URL
+                const url = `/api/view_file?file=${encodeURIComponent(file)}&dir=${type}&temp_dir=${encodeURIComponent(tempDir)}`;
+                
+                // 在当前页面显示文件内容
+                document.getElementById('comparison-result').style.display = 'none';
+                document.getElementById('diff-viewer').style.display = 'block';
+                const diffFrame = document.getElementById('diff-frame');
+                diffFrame.src = url;
+            } catch (error) {
+                alert('Error: ' + error.message);
             }
         }
 
@@ -549,7 +762,47 @@
             const resultDiv = document.getElementById('comparison-result');
             resultDiv.style.display = 'block';
 
-            // 显示统计信息
+            // 如果是单文件比对
+            if (result.is_single_file) {
+                // 创建新的内容容器
+                const content = document.createElement('div');
+                
+                // 创建统计卡片
+                const stats = document.createElement('div');
+                stats.className = 'stats';
+                stats.innerHTML = `
+                    <div class="stat-card">
+                        <h4>File Comparison Result</h4>
+                        <div class="number">${result.identical ? 'Identical' : 'Different'}</div>
+                    </div>
+                `;
+                content.appendChild(stats);
+
+                // 创建文件列表
+                const fileList = document.createElement('div');
+                fileList.className = 'result-section';
+                
+                const title = document.createElement('h3');
+                title.textContent = 'File Details';
+                fileList.appendChild(title);
+
+                const list = document.createElement('ul');
+                list.className = 'file-list';
+                
+                const item = createFileItem(dir1Name, result.identical ? 'unchanged' : 'modified');
+                list.appendChild(item);
+                
+                fileList.appendChild(list);
+                content.appendChild(fileList);
+                
+                // 清空并添加新的内容
+                resultDiv.innerHTML = '';
+                resultDiv.appendChild(content);
+                
+                return;
+            }
+
+            // 原有的文件夹比对显示逻辑
             const stats = result.stats;
             document.getElementById('stats').innerHTML = `
                 <div class="stat-card">
@@ -569,6 +822,11 @@
                     <div class="number">${stats.identical}</div>
                 </div>
             `;
+
+            // 显示所有文件列表
+            document.querySelectorAll('.result-section').forEach(section => {
+                section.style.display = 'block';
+            });
 
             // 显示文件列表
             const results = result.comparison_results;
@@ -604,8 +862,14 @@
 
         function createFileItem(file, type) {
             const li = document.createElement('li');
-            li.className = `file-item ${type} clickable`;
-            li.onclick = () => viewFile(file, type);
+            li.className = `file-item ${type}`;
+            
+            // 根据类型选择不同的处理函数
+            if (type === 'modified') {
+                li.onclick = () => compareFile(file);
+            } else {
+                li.onclick = () => viewFile(file, type === 'added' ? 'dir2' : type === 'removed' ? 'dir1' : 'dir1');
+            }
             
             const contentDiv = document.createElement('div');
             contentDiv.className = 'file-content';
@@ -619,6 +883,7 @@
             contentDiv.appendChild(text);
             
             li.appendChild(contentDiv);
+            
             return li;
         }
     </script>

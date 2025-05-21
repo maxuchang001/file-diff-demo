@@ -6,6 +6,8 @@ import shutil
 from dir_compare import DirectoryComparator
 from control import diffControl
 from file2html import convert_to_html
+import uuid
+import hashlib
 
 # 创建静态文件目录
 static_dir = os.path.join(os.path.dirname(__file__), 'static')
@@ -22,6 +24,10 @@ app = Flask(__name__,
            static_url_path='/static',
            template_folder='public')
 
+# 配置上传文件夹
+app.config['UPLOAD_FOLDER'] = os.path.join(os.path.dirname(__file__), 'uploads')
+os.makedirs(app.config['UPLOAD_FOLDER'], exist_ok=True)
+
 CORS(app)
 
 @app.route('/')
@@ -33,8 +39,71 @@ def serve_static(path):
     return send_from_directory('public', path)
 
 @app.route('/api/compare', methods=['POST'])
-def compare():
+def compare_directories():
     try:
+        # 检查是否是单文件比对
+        is_single_file = request.form.get('is_single_file') == 'true'
+        
+        if is_single_file:
+            # 处理单文件比对
+            file1 = request.files['file1']
+            file2 = request.files['file2']
+            file1_name = request.form.get('file1_name')
+            file2_name = request.form.get('file2_name')
+            
+            # 创建两个临时目录
+            temp_dir1 = tempfile.mkdtemp(prefix='file_diff_dir1_')
+            temp_dir2 = tempfile.mkdtemp(prefix='file_diff_dir2_')
+            
+            try:
+                # 保存文件
+                file1_path = os.path.join(temp_dir1, file1_name)
+                file2_path = os.path.join(temp_dir2, file2_name)
+                file1.save(file1_path)
+                file2.save(file2_path)
+                
+                # 计算文件哈希值
+                def calculate_file_hash(file_path):
+                    sha256_hash = hashlib.sha256()
+                    with open(file_path, "rb") as f:
+                        for byte_block in iter(lambda: f.read(4096), b""):
+                            sha256_hash.update(byte_block)
+                    return sha256_hash.hexdigest()
+                
+                file1_hash = calculate_file_hash(file1_path)
+                file2_hash = calculate_file_hash(file2_path)
+                
+                # 判断文件是否相同
+                identical = file1_hash == file2_hash
+                
+                # 保存临时目录路径
+                temp_dirs['dir1'] = temp_dir1
+                temp_dirs['dir2'] = temp_dir2
+                
+                return jsonify({
+                    'is_single_file': True,
+                    'identical': identical,
+                    'temp_dirs': {
+                        'dir1': temp_dir1,
+                        'dir2': temp_dir2
+                    },
+                    'comparison_results': {
+                        'only_in_dir1': [],
+                        'only_in_dir2': [],
+                        'different': [file1_name] if not identical else [],
+                        'identical': [file1_name] if identical else []
+                    }
+                })
+            except Exception as e:
+                # 如果发生错误，清理临时目录
+                shutil.rmtree(temp_dir1, ignore_errors=True)
+                shutil.rmtree(temp_dir2, ignore_errors=True)
+                raise e
+        
+        # 原有的文件夹比对逻辑
+        dir1_files = request.files.getlist('dir1')
+        dir2_files = request.files.getlist('dir2')
+        
         # 创建两个临时目录
         temp_dir1 = tempfile.mkdtemp(prefix='file_diff_dir1_')
         temp_dir2 = tempfile.mkdtemp(prefix='file_diff_dir2_')
@@ -45,13 +114,13 @@ def compare():
         
         try:
             # 保存dir1文件
-            for file in request.files.getlist('dir1'):
+            for file in dir1_files:
                 rel_path = file.filename
                 save_path = os.path.join(temp_dir1, rel_path)
                 os.makedirs(os.path.dirname(save_path), exist_ok=True)
                 file.save(save_path)
             # 保存dir2文件
-            for file in request.files.getlist('dir2'):
+            for file in dir2_files:
                 rel_path = file.filename
                 save_path = os.path.join(temp_dir2, rel_path)
                 os.makedirs(os.path.dirname(save_path), exist_ok=True)
