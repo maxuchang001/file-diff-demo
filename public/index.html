@@ -32,6 +32,7 @@
         .container {
             max-width: 1200px;
             margin: 0 auto;
+            position: relative;
         }
 
         .header {
@@ -86,6 +87,32 @@
             word-break: break-all;
             text-align: center;
             padding: 0 1rem;
+        }
+
+        .drop-zone .clear-btn {
+            position: absolute;
+            top: 10px;
+            right: 10px;
+            background: #ff4d4f;
+            color: white;
+            border: none;
+            border-radius: 50%;
+            width: 24px;
+            height: 24px;
+            line-height: 24px;
+            text-align: center;
+            cursor: pointer;
+            display: none;
+            font-size: 14px;
+            padding: 0;
+        }
+
+        .drop-zone .clear-btn:hover {
+            background: #ff7875;
+        }
+
+        .drop-zone.has-content .clear-btn {
+            display: block;
         }
 
         button {
@@ -326,10 +353,41 @@
             opacity: 0.9;
             transform: translateY(-2px);
         }
+
+        .reset-btn {
+            position: fixed;
+            top: 20px;
+            right: 20px;
+            background: linear-gradient(135deg, var(--primary-color), var(--secondary-color));
+            color: white;
+            border: none;
+            padding: 10px 20px;
+            border-radius: 8px;
+            cursor: pointer;
+            font-size: 1rem;
+            transition: all 0.3s ease;
+            display: none;
+            z-index: 1000;
+            box-shadow: 0 2px 8px rgba(0, 0, 0, 0.15);
+        }
+
+        .reset-btn:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.2);
+        }
+
+        .upload-section.hidden {
+            display: none;
+        }
+
+        #compare-btn.hidden {
+            display: none;
+        }
     </style>
 </head>
 <body>
     <div class="container">
+        <button class="reset-btn" id="reset-btn">Start New Analysis</button>
         <div class="upload-type-modal" id="upload-type-modal">
             <div class="upload-type-content">
                 <div class="upload-type-title">请选择上传类型</div>
@@ -349,6 +407,7 @@
             <div class="dir-card" id="dir1-card">
                 <div class="filename" id="dir1-name">First Item</div>
                 <div class="drop-zone" id="drop-zone-1">
+                    <button class="clear-btn" id="clear-btn-1">×</button>
                     <i>📁</i>
                     <span>Drag a directory or file here</span>
                     <div class="path" id="dir1-path"></div>
@@ -358,6 +417,7 @@
             <div class="dir-card" id="dir2-card">
                 <div class="filename" id="dir2-name">Second Item</div>
                 <div class="drop-zone" id="drop-zone-2">
+                    <button class="clear-btn" id="clear-btn-2">×</button>
                     <i>📁</i>
                     <span>Drag a directory or file here</span>
                     <div class="path" id="dir2-path"></div>
@@ -465,17 +525,14 @@
         // 处理第一个文件输入框的变化
         fileInput1.addEventListener('change', function(e) {
             if (this.files.length === 0) {
-                // 用户取消选择，清空所有相关数据
-                uploadType1 = null;
-                firstUploadType = null;
-                firstUploadExt = null;
-                document.getElementById('dir1-path').textContent = '';
-                dir1Name = '';
-                dir1Files = [];
+                clearUploadArea(1);
                 return;
             }
             
             const file = this.files[0];
+            const dropZone = document.getElementById('drop-zone-1');
+            dropZone.classList.add('has-content');
+            
             if (uploadType1 === 'directory') {
                 firstUploadType = 'directory';
                 const folderName = file.webkitRelativePath.split('/')[0];
@@ -501,15 +558,14 @@
         // 处理第二个文件输入框的变化
         fileInput2.addEventListener('change', function(e) {
             if (this.files.length === 0) {
-                // 用户取消选择，清空所有相关数据
-                uploadType2 = null;
-                document.getElementById('dir2-path').textContent = '';
-                dir2Name = '';
-                dir2Files = [];
+                clearUploadArea(2);
                 return;
             }
             
             const file = this.files[0];
+            const dropZone = document.getElementById('drop-zone-2');
+            dropZone.classList.add('has-content');
+            
             if (uploadType2 === 'directory') {
                 if (!file.webkitRelativePath) {
                     alert('请上传文件夹作为第二个项目');
@@ -667,6 +723,7 @@
                     if (item.kind === 'file') {
                         const entry = item.webkitGetAsEntry();
                         if (entry) {
+                            dropZone.classList.add('has-content');
                             if (dirNum === 1) {
                                 // 第一次上传
                                 if (entry.isDirectory) {
@@ -848,6 +905,18 @@
 
         function displayResults(result) {
             const resultDiv = document.getElementById('comparison-result');
+            const uploadSection = document.querySelector('.upload-section');
+            const compareBtn = document.getElementById('compare-btn');
+            const resetBtn = document.getElementById('reset-btn');
+
+            // 隐藏上传区域和比较按钮
+            uploadSection.classList.add('hidden');
+            compareBtn.classList.add('hidden');
+            compareBtn.style.display = 'none';  // 确保按钮被隐藏
+            
+            // 显示重置按钮
+            resetBtn.style.display = 'block';
+
             resultDiv.style.display = 'block';
 
             // 如果是单文件比对
@@ -974,6 +1043,93 @@
             
             return li;
         }
+
+        // 添加清空按钮功能
+        function clearUploadArea(zoneNum) {
+            const dropZone = document.getElementById(`drop-zone-${zoneNum}`);
+            const pathElement = document.getElementById(`dir${zoneNum}-path`);
+            const nameElement = document.getElementById(`dir${zoneNum}-name`);
+            
+            if (zoneNum === 1) {
+                uploadType1 = null;
+                firstUploadType = null;
+                firstUploadExt = null;
+                dir1Name = '';
+                dir1Files = [];
+            } else {
+                uploadType2 = null;
+                dir2Name = '';
+                dir2Files = [];
+            }
+            
+            pathElement.textContent = '';
+            nameElement.textContent = zoneNum === 1 ? 'First Item' : 'Second Item';
+            dropZone.classList.remove('has-content');
+        }
+
+        // 为清空按钮添加点击事件
+        document.getElementById('clear-btn-1').addEventListener('click', (e) => {
+            e.stopPropagation(); // 阻止事件冒泡
+            clearUploadArea(1);
+        });
+
+        document.getElementById('clear-btn-2').addEventListener('click', (e) => {
+            e.stopPropagation(); // 阻止事件冒泡
+            clearUploadArea(2);
+        });
+
+        // 添加重置功能
+        function resetAll() {
+            // 清空两个上传区域
+            clearUploadArea(1);
+            clearUploadArea(2);
+
+            // 清空比较结果
+            const resultDiv = document.getElementById('comparison-result');
+            resultDiv.style.display = 'none';
+            resultDiv.innerHTML = `
+                <div class="stats" id="stats"></div>
+                <div class="result-section">
+                    <h3>Added Files</h3>
+                    <ul class="file-list" id="added-files"></ul>
+                </div>
+                <div class="result-section">
+                    <h3>Removed Files</h3>
+                    <ul class="file-list" id="removed-files"></ul>
+                </div>
+                <div class="result-section">
+                    <h3>Modified Files</h3>
+                    <ul class="file-list" id="modified-files"></ul>
+                </div>
+                <div class="result-section">
+                    <h3>Unchanged Files</h3>
+                    <ul class="file-list" id="unchanged-files"></ul>
+                </div>
+            `;
+
+            // 显示上传区域和比较按钮
+            const uploadSection = document.querySelector('.upload-section');
+            const compareBtn = document.getElementById('compare-btn');
+            uploadSection.classList.remove('hidden');
+            compareBtn.classList.remove('hidden');
+            compareBtn.style.display = 'block';  // 确保按钮显示
+
+            // 隐藏重置按钮
+            document.getElementById('reset-btn').style.display = 'none';
+
+            // 清空临时目录
+            if (window.tempDirs) {
+                fetch('/api/cleanup', {
+                    method: 'POST'
+                }).catch(error => {
+                    console.error('Cleanup failed:', error);
+                });
+                window.tempDirs = null;
+            }
+        }
+
+        // 为重置按钮添加点击事件
+        document.getElementById('reset-btn').addEventListener('click', resetAll);
     </script>
 </body>
 </html>
