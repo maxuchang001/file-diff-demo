@@ -482,9 +482,8 @@
                 document.getElementById('dir1-path').textContent = folderName;
                 dir1Name = folderName;
                 dir1Files = Array.from(this.files).map(file => {
-                    if (!file.relativePath) {
-                        file.relativePath = file.webkitRelativePath;
-                    }
+                    const relativePath = file.webkitRelativePath.split('/').slice(1).join('/');
+                    file.relativePath = relativePath;
                     return file;
                 });
             } else {
@@ -523,9 +522,8 @@
                 document.getElementById('dir2-path').textContent = file.webkitRelativePath.split('/')[0];
                 dir2Name = file.webkitRelativePath.split('/')[0];
                 dir2Files = Array.from(this.files).map(file => {
-                    if (!file.relativePath) {
-                        file.relativePath = file.webkitRelativePath;
-                    }
+                    const relativePath = file.webkitRelativePath.split('/').slice(1).join('/');
+                    file.relativePath = relativePath;
                     return file;
                 });
             } else {
