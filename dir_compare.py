@@ -154,6 +154,8 @@ class DirectoryComparator:
                     if status == 'ok':
                         rel_html_path = os.path.relpath(html_path, os.path.join(os.path.dirname(__file__), 'static'))
                         f.write(f'<a href="/{rel_html_path}" class="view-link" target="_blank">查看文件</a>\n')
+                        # 保存HTML路径到文件内容中
+                        self.dir1_contents[rel_path]['html_path'] = rel_html_path
                     f.write(f'</div>\n')
                 elif in_dir2 and not in_dir1:
                     self.comparison_results['only_in_dir2'].append(rel_path)
@@ -165,6 +167,8 @@ class DirectoryComparator:
                     if status == 'ok':
                         rel_html_path = os.path.relpath(html_path, os.path.join(os.path.dirname(__file__), 'static'))
                         f.write(f'<a href="/{rel_html_path}" class="view-link" target="_blank">查看文件</a>\n')
+                        # 保存HTML路径到文件内容中
+                        self.dir2_contents[rel_path]['html_path'] = rel_html_path
                     f.write(f'</div>\n')
                 else:
                     if self.dir1_contents[rel_path]['type'] == 'directory' and self.dir2_contents[rel_path]['type'] == 'directory':
@@ -182,6 +186,8 @@ class DirectoryComparator:
                             if status == 'ok':
                                 rel_html_path = os.path.relpath(html_path, os.path.join(os.path.dirname(__file__), 'static'))
                                 f.write(f'<a href="/{rel_html_path}" class="view-link" target="_blank">查看文件</a>\n')
+                                # 保存HTML路径到文件内容中
+                                self.dir1_contents[rel_path]['html_path'] = rel_html_path
                             f.write(f'</div>\n')
                         else:
                             self.comparison_results['different'].append(rel_path)
@@ -195,9 +201,13 @@ class DirectoryComparator:
                             if status1 == 'ok':
                                 rel_html_path1 = os.path.relpath(html_path1, os.path.join(os.path.dirname(__file__), 'static'))
                                 f.write(f'<a href="/{rel_html_path1}" class="view-link" target="_blank">查看目录1文件</a>\n')
+                                # 保存HTML路径到文件内容中
+                                self.dir1_contents[rel_path]['html_path'] = rel_html_path1
                             if status2 == 'ok':
                                 rel_html_path2 = os.path.relpath(html_path2, os.path.join(os.path.dirname(__file__), 'static'))
                                 f.write(f'<a href="/{rel_html_path2}" class="view-link" target="_blank">查看目录2文件</a>\n')
+                                # 保存HTML路径到文件内容中
+                                self.dir2_contents[rel_path]['html_path'] = rel_html_path2
                             f.write(f'</div>\n')
                     else:
                         self.comparison_results['different'].append(rel_path)
@@ -207,20 +217,14 @@ class DirectoryComparator:
 
             f.write('</body>\n</html>')
 
-        # 生成统计信息
-        stats = {
-            'only_in_dir1': len(self.comparison_results['only_in_dir1']),
-            'only_in_dir2': len(self.comparison_results['only_in_dir2']),
-            'identical': len(self.comparison_results['identical']),
-            'different': len(self.comparison_results['different']),
-            'total_files_directories': len(all_rel_paths)
-        }
-
         # 返回结果
         return {
-            'comparison_results': self.comparison_results,
-            'stats': stats,
-            'diff_file': f'/static/diffs/{diff_file}'
+            'only_in_dir1': self.comparison_results['only_in_dir1'],
+            'only_in_dir2': self.comparison_results['only_in_dir2'],
+            'identical': self.comparison_results['identical'],
+            'different': self.comparison_results['different'],
+            'dir1_contents': self.dir1_contents,
+            'dir2_contents': self.dir2_contents
         }
 
     def generate_report(self) -> Dict:

@@ -539,6 +539,7 @@
                 document.getElementById('dir1-path').textContent = folderName;
                 dir1Name = folderName;
                 dir1Files = Array.from(this.files).map(file => {
+                    // 确保relativePath不包含文件夹名称
                     const relativePath = file.webkitRelativePath.split('/').slice(1).join('/');
                     file.relativePath = relativePath;
                     return file;
@@ -575,9 +576,11 @@
                     dir2Files = [];
                     return;
                 }
-                document.getElementById('dir2-path').textContent = file.webkitRelativePath.split('/')[0];
-                dir2Name = file.webkitRelativePath.split('/')[0];
+                const folderName = file.webkitRelativePath.split('/')[0];
+                document.getElementById('dir2-path').textContent = folderName;
+                dir2Name = folderName;
                 dir2Files = Array.from(this.files).map(file => {
+                    // 确保relativePath不包含文件夹名称
                     const relativePath = file.webkitRelativePath.split('/').slice(1).join('/');
                     file.relativePath = relativePath;
                     return file;
@@ -836,28 +839,46 @@
 
         async function compareFile(filePath) {
             try {
-                const formData = new FormData();
-                // 分别取自两个目录
-                const file1 = dir1Files[0];  // 单文件比对时直接使用第一个文件
-                const file2 = dir2Files[0];  // 单文件比对时直接使用第二个文件
-                
-                if (!file1 || !file2) {
-                    throw new Error('Both files must be present');
+                // 检查是否有预先生成的差异报告
+                if (window.diffReports && window.diffReports[filePath]) {
+                    // 使用预先生成的差异报告
+                    document.getElementById('comparison-result').style.display = 'none';
+                    document.getElementById('diff-viewer').style.display = 'block';
+                    const diffFrame = document.getElementById('diff-frame');
+                    diffFrame.src = window.diffReports[filePath];
+                    return;
                 }
+
+                // 如果没有预先生成的报告，使用临时目录中的文件
+                const tempDir1 = window.tempDirs.dir1;
+                const tempDir2 = window.tempDirs.dir2;
                 
-                formData.append('file1', file1);
-                formData.append('file2', file2);
-                formData.append('file1_name', dir1Name);
-                formData.append('file2_name', dir2Name);
+                if (!tempDir1 || !tempDir2) {
+                    throw new Error('Temporary directories not found');
+                }
+
+                // 构建文件路径
+                const file1Path = `${tempDir1}/${filePath}`;
+                const file2Path = `${tempDir2}/${filePath}`;
                 
-                // 添加文件扩展名
+                // 获取文件扩展名
                 const ext = '.' + filePath.split('.').pop().toLowerCase();
-                formData.append('ext', ext);
                 
+                // 发送请求到后端
                 const response = await fetch('/api/compare_file', {
                     method: 'POST',
-                    body: formData
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify({
+                        file1_path: file1Path,
+                        file2_path: file2Path,
+                        file1_name: dir1Name,
+                        file2_name: dir2Name,
+                        ext: ext
+                    })
                 });
+                
                 const result = await response.json();
                 if (!response.ok) {
                     throw new Error(result.error || 'Comparison failed');
@@ -867,7 +888,6 @@
                     document.getElementById('comparison-result').style.display = 'none';
                     document.getElementById('diff-viewer').style.display = 'block';
                     const diffFrame = document.getElementById('diff-frame');
-                    // 直接使用返回的URL
                     diffFrame.src = result.diff_url;
                 } else {
                     alert(result.message || '不支持的文件类型');
@@ -879,19 +899,39 @@
 
         async function viewFile(file, type) {
             try {
+                // 检查是否有预先生成的HTML报告
+                const contents = type === 'dir1' ? window.dir1Contents : window.dir2Contents;
+                if (contents && contents[file] && contents[file].html_path) {
+                    // 使用预先生成的HTML报告
+                    document.getElementById('comparison-result').style.display = 'none';
+                    document.getElementById('diff-viewer').style.display = 'block';
+                    const diffFrame = document.getElementById('diff-frame');
+                    diffFrame.src = contents[file].html_path;
+                    return;
+                }
+
+                // 如果没有预先生成的报告，使用临时目录中的文件
                 const tempDir = window.tempDirs[type];
                 if (!tempDir) {
                     throw new Error('Temporary directory not found');
                 }
                 
                 // 构建查看文件的URL
-                const url = `/api/view_file?file=${encodeURIComponent(file)}&dir=${type}&temp_dir=${encodeURIComponent(tempDir)}`;
+                const url = `/api/view_file?file=${encodeURIComponent(file)}&dir=${type}&temp_dir=${encodeURIComponent(tempDir)}&diff_reports=${encodeURIComponent(JSON.stringify(window.diffReports || {}))}`;
                 
-                // 在当前页面显示文件内容
-                document.getElementById('comparison-result').style.display = 'none';
-                document.getElementById('diff-viewer').style.display = 'block';
-                const diffFrame = document.getElementById('diff-frame');
-                diffFrame.src = url;
+                // 发送请求获取HTML URL
+                const response = await fetch(url);
+                const result = await response.json();
+                
+                if (result.status === 'ok') {
+                    // 在当前页面显示文件内容
+                    document.getElementById('comparison-result').style.display = 'none';
+                    document.getElementById('diff-viewer').style.display = 'block';
+                    const diffFrame = document.getElementById('diff-frame');
+                    diffFrame.src = result.html_url;
+                } else {
+                    throw new Error(result.error || 'Failed to view file');
+                }
             } catch (error) {
                 alert('Error: ' + error.message);
             }
@@ -919,6 +959,19 @@
 
             resultDiv.style.display = 'block';
 
+            // 保存差异报告
+            if (result.diff_reports) {
+                window.diffReports = result.diff_reports;
+            }
+
+            // 保存文件内容
+            if (result.dir1_contents) {
+                window.dir1Contents = result.dir1_contents;
+            }
+            if (result.dir2_contents) {
+                window.dir2Contents = result.dir2_contents;
+            }
+
             // 如果是单文件比对
             if (result.is_single_file) {
                 // 创建新的内容容器
@@ -930,7 +983,7 @@
                 stats.innerHTML = `
                     <div class="stat-card">
                         <h4>File Comparison Result</h4>
-                        <div class="number">${result.identical ? 'Identical' : 'Different'}</div>
+                        <div class="number">${result.stats.identical ? 'Identical' : 'Different'}</div>
                     </div>
                 `;
                 content.appendChild(stats);
@@ -946,7 +999,7 @@
                 const list = document.createElement('ul');
                 list.className = 'file-list';
                 
-                const item = createFileItem(dir1Name, result.identical ? 'unchanged' : 'modified');
+                const item = createFileItem(dir1Name, result.stats.identical ? 'unchanged' : 'modified');
                 list.appendChild(item);
                 
                 fileList.appendChild(list);
@@ -959,24 +1012,25 @@
                 return;
             }
 
-            // 原有的文件夹比对显示逻辑
+            // 文件夹比对的显示逻辑
+            // 显示统计信息
             const stats = result.stats;
             document.getElementById('stats').innerHTML = `
                 <div class="stat-card">
                     <h4>Added Files</h4>
-                    <div class="number">${stats.only_in_dir2}</div>
+                    <div class="number">${stats.only_in_dir2 || 0}</div>
                 </div>
                 <div class="stat-card">
                     <h4>Removed Files</h4>
-                    <div class="number">${stats.only_in_dir1}</div>
+                    <div class="number">${stats.only_in_dir1 || 0}</div>
                 </div>
                 <div class="stat-card">
                     <h4>Modified Files</h4>
-                    <div class="number">${stats.different}</div>
+                    <div class="number">${stats.different || 0}</div>
                 </div>
                 <div class="stat-card">
                     <h4>Unchanged Files</h4>
-                    <div class="number">${stats.identical}</div>
+                    <div class="number">${stats.identical || 0}</div>
                 </div>
             `;
 
@@ -991,30 +1045,38 @@
             // 新增文件
             const addedFilesList = document.getElementById('added-files');
             addedFilesList.innerHTML = '';
-            results.only_in_dir2.forEach(file => {
-                addedFilesList.appendChild(createFileItem(file, 'added'));
-            });
+            if (results.only_in_dir2) {
+                results.only_in_dir2.forEach(file => {
+                    addedFilesList.appendChild(createFileItem(file, 'added'));
+                });
+            }
 
             // 删除文件
             const removedFilesList = document.getElementById('removed-files');
             removedFilesList.innerHTML = '';
-            results.only_in_dir1.forEach(file => {
-                removedFilesList.appendChild(createFileItem(file, 'removed'));
-            });
+            if (results.only_in_dir1) {
+                results.only_in_dir1.forEach(file => {
+                    removedFilesList.appendChild(createFileItem(file, 'removed'));
+                });
+            }
 
             // 修改文件
             const modifiedFilesList = document.getElementById('modified-files');
             modifiedFilesList.innerHTML = '';
-            results.different.forEach(file => {
-                modifiedFilesList.appendChild(createFileItem(file, 'modified'));
-            });
+            if (results.different) {
+                results.different.forEach(file => {
+                    modifiedFilesList.appendChild(createFileItem(file, 'modified'));
+                });
+            }
 
             // 未变文件
             const unchangedFilesList = document.getElementById('unchanged-files');
             unchangedFilesList.innerHTML = '';
-            results.identical.forEach(file => {
-                unchangedFilesList.appendChild(createFileItem(file, 'unchanged'));
-            });
+            if (results.identical) {
+                results.identical.forEach(file => {
+                    unchangedFilesList.appendChild(createFileItem(file, 'unchanged'));
+                });
+            }
         }
 
         function createFileItem(file, type) {

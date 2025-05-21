@@ -18,7 +18,8 @@ def diffControl(file1, file2, file1_name, file2_name, ext):
         # 根据文件类型选择比较方法
         if ext in ['.txt', '.py', '.c', '.cpp', '.h', '.hpp', '.java', '.js', '.html', '.css', '.json', '.md', '.csv']:
             # 文本文件比较
-            return text_diff.generate_text_diff(file1, file2, file1_name, file2_name)
+            status, result = text_diff.generate_text_diff(file1, file2, file1_name, file2_name)
+            return status, result, None
         elif ext == '.pdf':
             # PDF文件比较
             return diffPdfV2.create_diff_report(file1, file2, file1_name, file2_name)
@@ -26,10 +27,10 @@ def diffControl(file1, file2, file1_name, file2_name, ext):
             # XML文件需要特殊处理
             return diffFile(file1, file2, file1_name, file2_name, ext)
         else:
-            return 'no', '不支持的文件类型'
+            return 'no', '不支持的文件类型', None
     except Exception as e:
         print(f"Error in diffControl: {str(e)}")
-        return 'no', str(e)
+        return 'no', str(e), None
 
 def is_ipxact_file(file_path):
     try:
@@ -72,26 +73,31 @@ def diffFile(file1_path, file2_path, file1_name, file2_name, ext):
                 timestamp = datetime.now().strftime('%Y%m%d_%H%M%S')
                 output_file = f'diff_{file1_name}_vs_{file2_name}_{timestamp}.html'
                 output_path = os.path.join(os.path.dirname(__file__), 'static', 'diffs', output_file)
-                visualizer.generate_ipxact_diff_html(file1_path, file2_path, output_path)
-                return 'ok', f'/static/diffs/{output_file}'
+                success = visualizer.generate_ipxact_diff_html(file1_path, file2_path, output_path)
+                if success:
+                    return 'ok', f'/static/diffs/{output_file}', None
+                else:
+                    return 'no', '生成IPXACT比较报告失败', None
             except Exception as e:
                 print(f"IPXACT比较错误: {str(e)}")
-                return 'no', str(e)
+                return 'no', str(e), None
         else:
             # 普通XML文件,使用文本比较
-            return text_diff.generate_text_diff(file1_path, file2_path, file1_name, file2_name)
+            status, result = text_diff.generate_text_diff(file1_path, file2_path, file1_name, file2_name)
+            return status, result, None
     elif ext.lower() in text_extensions:
         # 调用文本差异对比模块
-        return text_diff.generate_text_diff(file1_path, file2_path, file1_name, file2_name)
+        status, result = text_diff.generate_text_diff(file1_path, file2_path, file1_name, file2_name)
+        return status, result, None
     elif ext.lower() == '.docx':
         # docx 文件需先转换为 pdf
-        return 'no', 'docx 不支持的文件类型'
+        return 'no', 'docx 不支持的文件类型', None
     elif ext.lower() == '.xlsx':
         # xlsx 文件需先转换为 pdf
-        return 'no', 'xlsx 不支持的文件类型'
+        return 'no', 'xlsx 不支持的文件类型', None
     elif ext.lower() == '.pptx':
         # pptx 文件需先转换为 pdf
-        return 'no', 'pptx 不支持的文件类型'
+        return 'no', 'pptx 不支持的文件类型', None
     else:
         # 其他文件类型不支持
-        return 'no', '不支持的文件类型'
+        return 'no', '不支持的文件类型', None

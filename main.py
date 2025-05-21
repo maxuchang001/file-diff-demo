@@ -8,6 +8,8 @@ from control import diffControl
 from file2html import convert_to_html
 import uuid
 import hashlib
+import filecmp
+import json
 
 # 创建静态文件目录
 static_dir = os.path.join(os.path.dirname(__file__), 'static')
@@ -45,106 +47,128 @@ def compare_directories():
         is_single_file = request.form.get('is_single_file') == 'true'
         
         if is_single_file:
-            # 处理单文件比对
+            # 单文件比对逻辑
             file1 = request.files['file1']
             file2 = request.files['file2']
             file1_name = request.form.get('file1_name')
             file2_name = request.form.get('file2_name')
             
-            # 创建两个临时目录
-            temp_dir1 = tempfile.mkdtemp(prefix='file_diff_dir1_')
-            temp_dir2 = tempfile.mkdtemp(prefix='file_diff_dir2_')
+            # 创建临时目录
+            temp_dir1 = tempfile.mkdtemp()
+            temp_dir2 = tempfile.mkdtemp()
             
-            try:
-                # 保存文件
-                file1_path = os.path.join(temp_dir1, file1_name)
-                file2_path = os.path.join(temp_dir2, file2_name)
-                file1.save(file1_path)
-                file2.save(file2_path)
-                
-                # 计算文件哈希值
-                def calculate_file_hash(file_path):
-                    sha256_hash = hashlib.sha256()
-                    with open(file_path, "rb") as f:
-                        for byte_block in iter(lambda: f.read(4096), b""):
-                            sha256_hash.update(byte_block)
-                    return sha256_hash.hexdigest()
-                
-                file1_hash = calculate_file_hash(file1_path)
-                file2_hash = calculate_file_hash(file2_path)
-                
-                # 判断文件是否相同
-                identical = file1_hash == file2_hash
-                
-                # 保存临时目录路径
-                temp_dirs['dir1'] = temp_dir1
-                temp_dirs['dir2'] = temp_dir2
-                
-                return jsonify({
-                    'is_single_file': True,
-                    'identical': identical,
-                    'temp_dirs': {
-                        'dir1': temp_dir1,
-                        'dir2': temp_dir2
-                    },
-                    'comparison_results': {
-                        'only_in_dir1': [],
-                        'only_in_dir2': [],
-                        'different': [file1_name] if not identical else [],
-                        'identical': [file1_name] if identical else []
-                    }
-                })
-            except Exception as e:
-                # 如果发生错误，清理临时目录
-                shutil.rmtree(temp_dir1, ignore_errors=True)
-                shutil.rmtree(temp_dir2, ignore_errors=True)
-                raise e
-        
-        # 原有的文件夹比对逻辑
-        dir1_files = request.files.getlist('dir1')
-        dir2_files = request.files.getlist('dir2')
-        
-        # 创建两个临时目录
-        temp_dir1 = tempfile.mkdtemp(prefix='file_diff_dir1_')
-        temp_dir2 = tempfile.mkdtemp(prefix='file_diff_dir2_')
-        
-        # 保存临时目录路径
-        temp_dirs['dir1'] = temp_dir1
-        temp_dirs['dir2'] = temp_dir2
-        
-        try:
-            # 保存dir1文件
+            # 保存文件
+            file1_path = os.path.join(temp_dir1, file1_name)
+            file2_path = os.path.join(temp_dir2, file2_name)
+            file1.save(file1_path)
+            file2.save(file2_path)
+            
+            # 检查文件是否相同
+            identical = filecmp.cmp(file1_path, file2_path, shallow=False)
+            
+            # 获取文件扩展名
+            ext = os.path.splitext(file1_name)[1].lower()
+            
+            # 生成文件查看报告
+            status, html_path = convert_to_html(file1_path)
+            if status != 'ok':
+                return jsonify({'error': html_path}), 500
+            
+            # 只在文件不同时生成差异报告
+            diff_url = None
+            if not identical:
+                status, diff_url, _ = diffControl(file1_path, file2_path, file1_name, file2_name, ext)
+                if status != 'ok':
+                    return jsonify({'error': diff_url}), 500
+            
+            # 统一返回数据结构
+            return jsonify({
+                'is_single_file': True,
+                'comparison_results': {
+                    'only_in_dir1': [],
+                    'only_in_dir2': [],
+                    'identical': [file1_name] if identical else [],
+                    'different': [file1_name] if not identical else []
+                },
+                'stats': {
+                    'only_in_dir1': 0,
+                    'only_in_dir2': 0,
+                    'identical': 1 if identical else 0,
+                    'different': 0 if identical else 1
+                },
+                'diff_reports': {file1_name: diff_url} if diff_url else {},
+                'temp_dirs': {
+                    'dir1': temp_dir1,
+                    'dir2': temp_dir2
+                },
+                'dir1_contents': {file1_name: {'html_path': html_path}},
+                'dir2_contents': {file2_name: {'html_path': html_path}}
+            })
+        else:
+            # 文件夹比对逻辑
+            dir1_files = request.files.getlist('dir1')
+            dir2_files = request.files.getlist('dir2')
+            
+            # 创建临时目录
+            temp_dir1 = tempfile.mkdtemp()
+            temp_dir2 = tempfile.mkdtemp()
+            
+            # 保存文件
             for file in dir1_files:
-                rel_path = file.filename
-                save_path = os.path.join(temp_dir1, rel_path)
-                os.makedirs(os.path.dirname(save_path), exist_ok=True)
-                file.save(save_path)
-            # 保存dir2文件
+                if file.filename:  # 确保文件名不为空
+                    file_path = os.path.join(temp_dir1, file.filename)
+                    os.makedirs(os.path.dirname(file_path), exist_ok=True)
+                    file.save(file_path)
+            
             for file in dir2_files:
-                rel_path = file.filename
-                save_path = os.path.join(temp_dir2, rel_path)
-                os.makedirs(os.path.dirname(save_path), exist_ok=True)
-                file.save(save_path)
+                if file.filename:  # 确保文件名不为空
+                    file_path = os.path.join(temp_dir2, file.filename)
+                    os.makedirs(os.path.dirname(file_path), exist_ok=True)
+                    file.save(file_path)
+            
             # 比较目录
             comparator = DirectoryComparator(temp_dir1, temp_dir2)
-            result = comparator.compare()
+            results = comparator.compare()
             
-            # 将临时目录路径添加到结果中
-            result['temp_dirs'] = {
-                'dir1': temp_dir1,
-                'dir2': temp_dir2
+            # 生成差异报告
+            diff_reports = {}
+            for file_path in results['different']:
+                file1_path = os.path.join(temp_dir1, file_path)
+                file2_path = os.path.join(temp_dir2, file_path)
+                file1_name = os.path.basename(file_path)
+                file2_name = os.path.basename(file_path)
+                ext = os.path.splitext(file_path)[1].lower()
+                
+                status, diff_url, _ = diffControl(file1_path, file2_path, file1_name, file2_name, ext)
+                if status == 'ok':
+                    diff_reports[file_path] = diff_url
+            
+            # 计算统计信息
+            stats = {
+                'only_in_dir1': len(results['only_in_dir1']),
+                'only_in_dir2': len(results['only_in_dir2']),
+                'identical': len(results['identical']),
+                'different': len(results['different'])
             }
             
-            return jsonify(result)
-        except Exception as e:
-            # 如果发生错误，清理临时目录
-            shutil.rmtree(temp_dir1, ignore_errors=True)
-            shutil.rmtree(temp_dir2, ignore_errors=True)
-            if 'dir1' in temp_dirs:
-                del temp_dirs['dir1']
-            if 'dir2' in temp_dirs:
-                del temp_dirs['dir2']
-            raise e
+            return jsonify({
+                'is_single_file': False,
+                'comparison_results': {
+                    'only_in_dir1': results['only_in_dir1'],
+                    'only_in_dir2': results['only_in_dir2'],
+                    'identical': results['identical'],
+                    'different': results['different']
+                },
+                'stats': stats,
+                'diff_reports': diff_reports,
+                'temp_dirs': {
+                    'dir1': temp_dir1,
+                    'dir2': temp_dir2
+                },
+                'dir1_contents': results['dir1_contents'],
+                'dir2_contents': results['dir2_contents']
+            })
+            
     except Exception as e:
         return jsonify({'error': str(e)}), 500
 
@@ -154,6 +178,7 @@ def view_file():
         file_path = request.args.get('file')
         dir_type = request.args.get('dir')
         temp_dir = request.args.get('temp_dir')
+        diff_reports_str = request.args.get('diff_reports')
         
         if not file_path or not dir_type or not temp_dir:
             return jsonify({'error': 'Missing file path, directory type or temp directory'}), 400
@@ -167,11 +192,26 @@ def view_file():
         if not os.path.exists(full_path):
             return jsonify({'error': 'File not found'}), 404
             
-        # 使用 file2html 转换文件
+        # 检查是否有预先生成的差异报告
+        if diff_reports_str:
+            try:
+                diff_reports = json.loads(diff_reports_str)
+                if file_path in diff_reports:
+                    return jsonify({
+                        'status': 'ok',
+                        'html_url': diff_reports[file_path]
+                    })
+            except json.JSONDecodeError:
+                pass
+            
+        # 如果没有预先生成的报告，使用 file2html 转换文件
         status, html_path = convert_to_html(full_path)
         if status == 'ok':
-            # 直接返回生成的 HTML 文件
-            return send_from_directory(os.path.dirname(html_path), os.path.basename(html_path))
+            # 返回生成的 HTML 文件的 URL
+            return jsonify({
+                'status': 'ok',
+                'html_url': html_path
+            })
         else:
             return jsonify({'error': html_path}), 500
             
@@ -181,42 +221,30 @@ def view_file():
 @app.route('/api/compare_file', methods=['POST'])
 def compare_file():
     try:
-        # 创建两个独立的临时目录
-        temp_dir1 = tempfile.mkdtemp()
-        temp_dir2 = tempfile.mkdtemp()
-        try:
-            file1 = request.files['file1']
-            file2 = request.files['file2']
-            file1_name = request.form.get('file1_name', 'file1')
-            file2_name = request.form.get('file2_name', 'file2')
+        data = request.get_json()
+        file1_path = data.get('file1_path')
+        file2_path = data.get('file2_path')
+        file1_name = data.get('file1_name', 'file1')
+        file2_name = data.get('file2_name', 'file2')
+        ext = data.get('ext', '')
 
-            # 保存文件到各自的临时目录
-            file1_path = os.path.join(temp_dir1, file1.filename)
-            file2_path = os.path.join(temp_dir2, file2.filename)
-            file1.save(file1_path)
-            file2.save(file2_path)
+        if not file1_path or not file2_path:
+            return jsonify({'error': 'Missing file paths'}), 400
 
-            # 获取文件扩展名
-            ext = os.path.splitext(file1.filename)[1]
+        # 调用文件比较函数
+        status, result, _ = diffControl(file1_path, file2_path, file1_name, file2_name, ext)
+        
+        if status == 'ok':
+            return jsonify({
+                'status': 'ok',
+                'diff_url': result
+            })
+        else:
+            return jsonify({
+                'status': 'no',
+                'message': result
+            }), 400
 
-            # 调用文件比较函数
-            status, result,_ = diffControl(file1_path, file2_path, file1_name, file2_name, ext)
-            
-            if status == 'ok':
-                return jsonify({
-                    'status': 'ok',
-                    'diff_url': result
-                })
-            else:
-                return jsonify({
-                    'status': 'no',
-                    'message': result
-                }), 400
-
-        finally:
-            # 清理临时目录
-            shutil.rmtree(temp_dir1)
-            shutil.rmtree(temp_dir2)
     except Exception as e:
         return jsonify({'error': str(e)}), 500
 
