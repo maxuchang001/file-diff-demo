@@ -355,7 +355,7 @@
                 </div>
             </div>
 
-            <div class="dir-card" id="dir2-card" style="display: none;">
+            <div class="dir-card" id="dir2-card">
                 <div class="filename" id="dir2-name">Second Item</div>
                 <div class="drop-zone" id="drop-zone-2">
                     <i>📁</i>
@@ -365,7 +365,7 @@
             </div>
         </div>
 
-        <button onclick="compareDirectories()" id="compare-btn">Start Comparison</button>
+        <button onclick="compareDirectories()" id="compare-btn" style="display: block;">开始比较</button>
 
         <div class="comparison-result" id="comparison-result" style="display: none;">
             <div class="stats" id="stats"></div>
@@ -449,14 +449,13 @@
         function setupDropZone(elementId, pathId, dirNum) {
             const dropZone = document.getElementById(elementId);
             const pathElement = document.getElementById(pathId);
-            const modal = document.getElementById('upload-type-modal');
-            let currentFileInput = null;
-
-            // 添加文件输入元素
             const fileInput = document.createElement('input');
             fileInput.type = 'file';
             fileInput.style.display = 'none';
             dropZone.appendChild(fileInput);
+
+            // 确保对比按钮始终显示
+            document.getElementById('compare-btn').style.display = 'block';
 
             ['dragenter', 'dragover', 'dragleave', 'drop'].forEach(eventName => {
                 dropZone.addEventListener(eventName, preventDefaults, false);
@@ -483,46 +482,66 @@
                 dropZone.classList.remove('dragover');
             }
 
-            // 处理选择框按钮点击
-            modal.querySelectorAll('.upload-type-btn').forEach(btn => {
-                btn.addEventListener('click', () => {
-                    const type = btn.dataset.type;
-                    modal.classList.remove('active');
-                    
-                    if (type === 'directory') {
-                        currentFileInput.setAttribute('webkitdirectory', '');
-                        currentFileInput.setAttribute('directory', '');
+            // 处理文件选择
+            fileInput.addEventListener('change', async function(e) {
+                if (this.files.length > 0) {
+                    if (dirNum === 1) {
+                        // 第一次上传
+                        if (this.files[0].webkitRelativePath) {  // 是文件夹
+                            firstUploadType = 'directory';
+                            const folderName = this.files[0].webkitRelativePath.split('/')[0];
+                            pathElement.textContent = folderName;
+                            dir1Name = folderName;
+                            dir1Files = Array.from(this.files).map(file => {
+                                // 确保每个文件都有relativePath属性
+                                if (!file.relativePath) {
+                                    file.relativePath = file.webkitRelativePath;
+                                }
+                                return file;
+                            });
+                        } else {  // 是文件
+                            firstUploadType = 'file';
+                            const file = this.files[0];
+                            const fileName = file.name;
+                            const fileExt = fileName.split('.').pop().toLowerCase();
+                            firstUploadExt = fileExt;
+                            pathElement.textContent = fileName;
+                            dir1Name = fileName;
+                            dir1Files = [file];
+                        }
                     } else {
-                        currentFileInput.removeAttribute('webkitdirectory');
-                        currentFileInput.removeAttribute('directory');
+                        // 第二次上传
+                        if (firstUploadType === 'directory' && !this.files[0].webkitRelativePath) {
+                            alert('请上传文件夹作为第二个项目');
+                            return;
+                        } else if (firstUploadType === 'file') {
+                            if (this.files[0].webkitRelativePath) {
+                                alert('请上传文件作为第二个项目');
+                                return;
+                            }
+                            const file = this.files[0];
+                            const fileName = file.name;
+                            const fileExt = fileName.split('.').pop().toLowerCase();
+                            if (fileExt !== firstUploadExt) {
+                                alert(`请上传相同扩展名的文件 (.${firstUploadExt})`);
+                                return;
+                            }
+                            pathElement.textContent = fileName;
+                            dir2Name = fileName;
+                            dir2Files = [file];
+                        } else if (this.files[0].webkitRelativePath) {
+                            const folderName = this.files[0].webkitRelativePath.split('/')[0];
+                            pathElement.textContent = folderName;
+                            dir2Name = folderName;
+                            dir2Files = Array.from(this.files).map(file => {
+                                // 确保每个文件都有relativePath属性
+                                if (!file.relativePath) {
+                                    file.relativePath = file.webkitRelativePath;
+                                }
+                                return file;
+                            });
+                        }
                     }
-                    currentFileInput.click();
-                });
-            });
-
-            // 处理点击上传
-            dropZone.addEventListener('click', () => {
-                if (dirNum === 1) {
-                    // 第一次上传，显示选择框
-                    currentFileInput = fileInput;
-                    modal.classList.add('active');
-                } else {
-                    // 第二次上传，根据第一次上传的类型设置
-                    if (firstUploadType === 'directory') {
-                        fileInput.setAttribute('webkitdirectory', '');
-                        fileInput.setAttribute('directory', '');
-                    } else {
-                        fileInput.removeAttribute('webkitdirectory');
-                        fileInput.removeAttribute('directory');
-                    }
-                    fileInput.click();
-                }
-            });
-
-            // 点击模态框背景关闭
-            modal.addEventListener('click', (e) => {
-                if (e.target === modal) {
-                    modal.classList.remove('active');
                 }
             });
 
@@ -542,7 +561,6 @@
                                     pathElement.textContent = entry.name;
                                     dir1Name = entry.name;
                                     dir1Files = await readAllFiles(entry, '');
-                                    document.getElementById('dir2-card').style.display = 'block';
                                 } else if (entry.isFile) {
                                     firstUploadType = 'file';
                                     const fileName = entry.name;
@@ -551,22 +569,21 @@
                                     pathElement.textContent = fileName;
                                     dir1Name = fileName;
                                     dir1Files = [await new Promise(resolve => entry.file(resolve))];
-                                    document.getElementById('dir2-card').style.display = 'block';
                                 }
                             } else {
                                 // 第二次上传
                                 if (firstUploadType === 'directory' && !entry.isDirectory) {
-                                    alert('Please upload a directory as the second item');
+                                    alert('请上传文件夹作为第二个项目');
                                     return;
                                 } else if (firstUploadType === 'file') {
                                     if (!entry.isFile) {
-                                        alert('Please upload a file as the second item');
+                                        alert('请上传文件作为第二个项目');
                                         return;
                                     }
                                     const fileName = entry.name;
                                     const fileExt = fileName.split('.').pop().toLowerCase();
                                     if (fileExt !== firstUploadExt) {
-                                        alert(`Please upload a file with the same extension (.${firstUploadExt})`);
+                                        alert(`请上传相同扩展名的文件 (.${firstUploadExt})`);
                                         return;
                                     }
                                     pathElement.textContent = fileName;
@@ -577,65 +594,11 @@
                                     dir2Name = entry.name;
                                     dir2Files = await readAllFiles(entry, '');
                                 }
-                                // 显示比较按钮
-                                document.getElementById('compare-btn').style.display = 'block';
                             }
                         }
                     }
                 }
             }, false);
-
-            // 处理文件选择
-            fileInput.addEventListener('change', async function(e) {
-                if (this.files.length > 0) {
-                    const file = this.files[0];
-                    if (dirNum === 1) {
-                        // 第一次上传
-                        if (file.webkitRelativePath) {  // 是文件夹
-                            firstUploadType = 'directory';
-                            pathElement.textContent = file.webkitRelativePath.split('/')[0];
-                            dir1Name = file.webkitRelativePath.split('/')[0];
-                            dir1Files = Array.from(this.files);
-                            document.getElementById('dir2-card').style.display = 'block';
-                        } else {  // 是文件
-                            firstUploadType = 'file';
-                            const fileName = file.name;
-                            const fileExt = fileName.split('.').pop().toLowerCase();
-                            firstUploadExt = fileExt;
-                            pathElement.textContent = fileName;
-                            dir1Name = fileName;
-                            dir1Files = [file];
-                            document.getElementById('dir2-card').style.display = 'block';
-                        }
-                    } else {
-                        // 第二次上传
-                        if (firstUploadType === 'directory' && !file.webkitRelativePath) {
-                            alert('Please upload a directory as the second item');
-                            return;
-                        } else if (firstUploadType === 'file') {
-                            if (file.webkitRelativePath) {
-                                alert('Please upload a file as the second item');
-                                return;
-                            }
-                            const fileName = file.name;
-                            const fileExt = fileName.split('.').pop().toLowerCase();
-                            if (fileExt !== firstUploadExt) {
-                                alert(`Please upload a file with the same extension (.${firstUploadExt})`);
-                                return;
-                            }
-                            pathElement.textContent = fileName;
-                            dir2Name = fileName;
-                            dir2Files = [file];
-                        } else if (file.webkitRelativePath) {
-                            pathElement.textContent = file.webkitRelativePath.split('/')[0];
-                            dir2Name = file.webkitRelativePath.split('/')[0];
-                            dir2Files = Array.from(this.files);
-                        }
-                        // 显示比较按钮
-                        document.getElementById('compare-btn').style.display = 'block';
-                    }
-                }
-            });
         }
 
         setupDropZone('drop-zone-1', 'dir1-path', 1);
@@ -643,13 +606,13 @@
 
         async function compareDirectories() {
             if (!dir1Files.length || !dir2Files.length) {
-                alert('Please select two directories');
+                alert('请先选择两个文件或文件夹');
                 return;
             }
             const btn = document.getElementById('compare-btn');
             try {
                 btn.disabled = true;
-                btn.textContent = 'Processing...';
+                btn.textContent = '处理中...';
                 const formData = new FormData();
                 
                 // 判断是否是单文件比对
@@ -676,16 +639,16 @@
                 });
                 const result = await response.json();
                 if (!response.ok) {
-                    throw new Error(result.error || 'Comparison failed');
+                    throw new Error(result.error || '比较失败');
                 }
                 // 保存临时目录路径
                 window.tempDirs = result.temp_dirs;
                 displayResults(result);
             } catch (error) {
-                alert('Error: ' + error.message);
+                alert('错误: ' + error.message);
             } finally {
                 btn.disabled = false;
-                btn.textContent = 'Start Comparison';
+                btn.textContent = '开始比较';
             }
         }
 
