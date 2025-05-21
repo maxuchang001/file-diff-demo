@@ -1,0 +1,16 @@
+# Python virtual environment
+.venv/
+ 
+# VSCode files
+.vscode/
+ 
+# Auto-saved files
+*.*swp
+ 
+# Ignore all .pyc files
+*.pyc
+ 
+# Ignore all .log files
+*.log
+*.pyc
+/__pycache__

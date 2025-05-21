@@ -1,13 +1,13 @@
+import base64
 import os
 import uuid
 from pdf2image import convert_from_path
 from PIL import Image, ImageDraw, ImageFont
 import cv2
 import numpy as np
-import fitz  # PyMuPDF
-import pytesseract
-import shutil
-import tempfile
+import fitz
+
+from summarize import summarize_image  # PyMuPDF
 
 # ===== 配置部分 =====
 IMAGE_DIFF_COLOR = 'Orange'
@@ -19,7 +19,7 @@ BG_COLOR = "white"
 FONT_PATH = "arial.ttf"  # 可替换为系统中可用字体路径
 
 # 配置 Poppler 路径
-POPPLER_PATH = r"C:\mine\program\poppler-24.08.0\Library\bin"
+# POPPLER_PATH = r"C:\mine\program\poppler-24.08.0\Library\bin"
 
 # 配置图片差异显示
 DIFF_COLOR = (0, 0, 255)  # 红色
@@ -45,7 +45,7 @@ def compare_texts(texts1, texts2):
 
 def render_pdf_to_images(pdf_path, dpi=200):
     """将PDF渲染为图片"""
-    return convert_from_path(pdf_path, dpi=dpi, poppler_path=POPPLER_PATH)
+    return convert_from_path(pdf_path, dpi=dpi)
 
 def draw_labels(image, label):
     width, height = image.size
@@ -103,15 +103,28 @@ def create_combined_image(img_left, img_right, label_left="Old version", label_r
     return combined
 
 def generate_html_report(image_paths, html_output_path):
+    html_summarize = ""
     html = ['<html><head><meta charset="UTF-8"><style>body { font-family: sans-serif; text-align: center; }</style></head><body>']
     html.append("<h1>PDF Variance comparison report</h1>")
     for i, img_path in enumerate(image_paths):
         html.append(f"<h2>Page {i + 1}</h2>")
-        html.append(f'<img src="{img_path}" style="width:95%; border:1px solid #ccc;"><hr>')
+        with open(img_path, "rb") as f:
+            encoded = base64.b64encode(f.read()).decode('utf-8')
+            html.append(f'<img src="data:image/jpeg;base64,{encoded}" style="width:100%; border:1px solid #ccc;"/><hr>')
+            # 添加智能总结
+            image_result = summarize_image(encoded)
+            html.append(image_result)
+            html_summarize += image_result
+
+        os.remove(img_path)  # 删除临时图片文件
+        # html.append(f'<img src="{img_path}" style="width:95%; border:1px solid #ccc;"><hr>')
+        
+
     html.append("</body></html>")
 
     with open(html_output_path, "w", encoding="utf-8") as f:
         f.write("\n".join(html))
+    return html_summarize
 
 # ===== 主程序 =====
 
@@ -137,13 +150,13 @@ def diff_pdfs_side_by_side(pdf1_path, pdf2_path, file1_name, file2_name, output_
 
         out_path = os.path.join(output_dir, f"diff_page_{i+1}.png")
         combined.save(out_path)
-        combined_image_paths.append(os.path.basename(out_path))
+        combined_image_paths.append(out_path)
         print(f"✅ 页面 {i+1} 完成")
 
     html_path = os.path.join(output_dir, "diff_report.html")
-    generate_html_report(combined_image_paths, html_path)
+    html_summarize = generate_html_report(combined_image_paths, html_path)
     print(f"📄 HTML 报告生成完成: {html_path}")
-    return html_path
+    return html_path, html_summarize
 
 def create_diff_report(pdf1, pdf2, file1_name, file2_name):
     try:
@@ -156,10 +169,10 @@ def create_diff_report(pdf1, pdf2, file1_name, file2_name):
         os.makedirs(output_dir, exist_ok=True)
         
         # 生成差异报告
-        html_path = diff_pdfs_side_by_side(pdf1, pdf2, file1_name, file2_name, output_dir)
+        html_path, html_summarize = diff_pdfs_side_by_side(pdf1, pdf2, file1_name, file2_name, output_dir)
         
         # 返回相对于 static 目录的路径
-        return 'ok', f'/static/diffs/{os.path.basename(output_dir)}/diff_report.html'
+        return 'ok', f'/static/diffs/{os.path.basename(output_dir)}/diff_report.html', html_summarize
     except Exception as e:
         print(f"Error in create_diff_report: {str(e)}")
-        return 'no', str(e)
+        return 'no', str(e),""
