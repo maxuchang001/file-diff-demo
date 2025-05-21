@@ -200,7 +200,7 @@ def compare_file():
             ext = os.path.splitext(file1.filename)[1]
 
             # 调用文件比较函数
-            status, result = diffControl(file1_path, file2_path, file1_name, file2_name, ext)
+            status, result,_ = diffControl(file1_path, file2_path, file1_name, file2_name, ext)
             
             if status == 'ok':
                 return jsonify({
