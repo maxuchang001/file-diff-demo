@@ -66,6 +66,7 @@
             background-color: white;
             margin-bottom: 20px;
             cursor: pointer;
+            position: relative;
         }
 
         .drop-zone.dragover {
@@ -260,10 +261,85 @@
                 grid-template-columns: 1fr;
             }
         }
+
+        .upload-type-modal {
+            display: none;
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background-color: rgba(0, 0, 0, 0.5);
+            z-index: 1000;
+            justify-content: center;
+            align-items: center;
+        }
+
+        .upload-type-modal.active {
+            display: flex;
+        }
+
+        .upload-type-content {
+            background: white;
+            padding: 30px;
+            border-radius: 8px;
+            text-align: center;
+            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+            max-width: 400px;
+            width: 90%;
+        }
+
+        .upload-type-title {
+            font-size: 1.2em;
+            margin-bottom: 20px;
+            color: var(--text-color);
+        }
+
+        .upload-type-buttons {
+            display: flex;
+            gap: 15px;
+            justify-content: center;
+        }
+
+        .upload-type-btn {
+            padding: 10px 20px;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 1em;
+            transition: all 0.3s ease;
+            flex: 1;
+            max-width: 150px;
+        }
+
+        .upload-type-btn.file {
+            background-color: var(--primary-color);
+            color: white;
+        }
+
+        .upload-type-btn.directory {
+            background-color: var(--secondary-color);
+            color: white;
+        }
+
+        .upload-type-btn:hover {
+            opacity: 0.9;
+            transform: translateY(-2px);
+        }
     </style>
 </head>
 <body>
     <div class="container">
+        <div class="upload-type-modal" id="upload-type-modal">
+            <div class="upload-type-content">
+                <div class="upload-type-title">请选择上传类型</div>
+                <div class="upload-type-buttons">
+                    <button class="upload-type-btn file" data-type="file">上传文件</button>
+                    <button class="upload-type-btn directory" data-type="directory">上传文件夹</button>
+                </div>
+            </div>
+        </div>
+
         <div class="header">
             <h1>Directory Difference Comparison Tool</h1>
             <p>Drag and drop two directories below to compare differences</p>
@@ -373,6 +449,14 @@
         function setupDropZone(elementId, pathId, dirNum) {
             const dropZone = document.getElementById(elementId);
             const pathElement = document.getElementById(pathId);
+            const modal = document.getElementById('upload-type-modal');
+            let currentFileInput = null;
+
+            // 添加文件输入元素
+            const fileInput = document.createElement('input');
+            fileInput.type = 'file';
+            fileInput.style.display = 'none';
+            dropZone.appendChild(fileInput);
 
             ['dragenter', 'dragover', 'dragleave', 'drop'].forEach(eventName => {
                 dropZone.addEventListener(eventName, preventDefaults, false);
@@ -399,6 +483,50 @@
                 dropZone.classList.remove('dragover');
             }
 
+            // 处理选择框按钮点击
+            modal.querySelectorAll('.upload-type-btn').forEach(btn => {
+                btn.addEventListener('click', () => {
+                    const type = btn.dataset.type;
+                    modal.classList.remove('active');
+                    
+                    if (type === 'directory') {
+                        currentFileInput.setAttribute('webkitdirectory', '');
+                        currentFileInput.setAttribute('directory', '');
+                    } else {
+                        currentFileInput.removeAttribute('webkitdirectory');
+                        currentFileInput.removeAttribute('directory');
+                    }
+                    currentFileInput.click();
+                });
+            });
+
+            // 处理点击上传
+            dropZone.addEventListener('click', () => {
+                if (dirNum === 1) {
+                    // 第一次上传，显示选择框
+                    currentFileInput = fileInput;
+                    modal.classList.add('active');
+                } else {
+                    // 第二次上传，根据第一次上传的类型设置
+                    if (firstUploadType === 'directory') {
+                        fileInput.setAttribute('webkitdirectory', '');
+                        fileInput.setAttribute('directory', '');
+                    } else {
+                        fileInput.removeAttribute('webkitdirectory');
+                        fileInput.removeAttribute('directory');
+                    }
+                    fileInput.click();
+                }
+            });
+
+            // 点击模态框背景关闭
+            modal.addEventListener('click', (e) => {
+                if (e.target === modal) {
+                    modal.classList.remove('active');
+                }
+            });
+
+            // 处理拖拽上传
             dropZone.addEventListener('drop', async function(e) {
                 const dt = e.dataTransfer;
                 const items = dt.items;
@@ -456,6 +584,58 @@
                     }
                 }
             }, false);
+
+            // 处理文件选择
+            fileInput.addEventListener('change', async function(e) {
+                if (this.files.length > 0) {
+                    const file = this.files[0];
+                    if (dirNum === 1) {
+                        // 第一次上传
+                        if (file.webkitRelativePath) {  // 是文件夹
+                            firstUploadType = 'directory';
+                            pathElement.textContent = file.webkitRelativePath.split('/')[0];
+                            dir1Name = file.webkitRelativePath.split('/')[0];
+                            dir1Files = Array.from(this.files);
+                            document.getElementById('dir2-card').style.display = 'block';
+                        } else {  // 是文件
+                            firstUploadType = 'file';
+                            const fileName = file.name;
+                            const fileExt = fileName.split('.').pop().toLowerCase();
+                            firstUploadExt = fileExt;
+                            pathElement.textContent = fileName;
+                            dir1Name = fileName;
+                            dir1Files = [file];
+                            document.getElementById('dir2-card').style.display = 'block';
+                        }
+                    } else {
+                        // 第二次上传
+                        if (firstUploadType === 'directory' && !file.webkitRelativePath) {
+                            alert('Please upload a directory as the second item');
+                            return;
+                        } else if (firstUploadType === 'file') {
+                            if (file.webkitRelativePath) {
+                                alert('Please upload a file as the second item');
+                                return;
+                            }
+                            const fileName = file.name;
+                            const fileExt = fileName.split('.').pop().toLowerCase();
+                            if (fileExt !== firstUploadExt) {
+                                alert(`Please upload a file with the same extension (.${firstUploadExt})`);
+                                return;
+                            }
+                            pathElement.textContent = fileName;
+                            dir2Name = fileName;
+                            dir2Files = [file];
+                        } else if (file.webkitRelativePath) {
+                            pathElement.textContent = file.webkitRelativePath.split('/')[0];
+                            dir2Name = file.webkitRelativePath.split('/')[0];
+                            dir2Files = Array.from(this.files);
+                        }
+                        // 显示比较按钮
+                        document.getElementById('compare-btn').style.display = 'block';
+                    }
+                }
+            });
         }
 
         setupDropZone('drop-zone-1', 'dir1-path', 1);
