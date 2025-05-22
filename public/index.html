@@ -1066,9 +1066,14 @@
                 if (window.diffReports && window.diffReports[filePath]) {
                     // 使用预先生成的差异报告
                     const detailFrame = document.getElementById('detail-frame');
-                    detailFrame.src = window.diffReports[filePath];
-                    detailFrame.classList.add('active');
-                    document.querySelector('.detail-card .placeholder').style.display = 'none';
+                    if (detailFrame) {
+                        detailFrame.src = window.diffReports[filePath];
+                        detailFrame.classList.add('active');
+                        const placeholder = document.querySelector('.detail-card .placeholder');
+                        if (placeholder) {
+                            placeholder.style.display = 'none';
+                        }
+                    }
                     return;
                 }
 
@@ -1109,9 +1114,14 @@
                 if (result.status === 'ok') {
                     // 在右侧面板显示对比报告
                     const detailFrame = document.getElementById('detail-frame');
-                    detailFrame.src = result.diff_url;
-                    detailFrame.classList.add('active');
-                    document.querySelector('.detail-card .placeholder').style.display = 'none';
+                    if (detailFrame) {
+                        detailFrame.src = result.diff_url;
+                        detailFrame.classList.add('active');
+                        const placeholder = document.querySelector('.detail-card .placeholder');
+                        if (placeholder) {
+                            placeholder.style.display = 'none';
+                        }
+                    }
                 } else {
                     alert(result.message || '不支持的文件类型');
                 }
@@ -1127,9 +1137,14 @@
                 if (contents && contents[file] && contents[file].html_path) {
                     // 使用预先生成的HTML报告
                     const detailFrame = document.getElementById('detail-frame');
-                    detailFrame.src = contents[file].html_path;
-                    detailFrame.classList.add('active');
-                    document.querySelector('.detail-card .placeholder').style.display = 'none';
+                    if (detailFrame) {
+                        detailFrame.src = contents[file].html_path;
+                        detailFrame.classList.add('active');
+                        const placeholder = document.querySelector('.detail-card .placeholder');
+                        if (placeholder) {
+                            placeholder.style.display = 'none';
+                        }
+                    }
                     return;
                 }
 
@@ -1149,9 +1164,14 @@
                 if (result.status === 'ok') {
                     // 在右侧面板显示文件内容
                     const detailFrame = document.getElementById('detail-frame');
-                    detailFrame.src = result.html_url;
-                    detailFrame.classList.add('active');
-                    document.querySelector('.detail-card .placeholder').style.display = 'none';
+                    if (detailFrame) {
+                        detailFrame.src = result.html_url;
+                        detailFrame.classList.add('active');
+                        const placeholder = document.querySelector('.detail-card .placeholder');
+                        if (placeholder) {
+                            placeholder.style.display = 'none';
+                        }
+                    }
                 } else {
                     throw new Error(result.error || 'Failed to view file');
                 }
@@ -1212,25 +1232,44 @@
                 // 创建文件列表
                 const fileList = document.createElement('div');
                 fileList.className = 'file-lists';
+
+                // 根据文件状态创建对应的section
+                const section = document.createElement('div');
+                section.className = `result-section ${result.stats.identical ? 'unchanged' : 'modified'}`;
                 
                 const title = document.createElement('h3');
-                title.textContent = 'File Details';
-                fileList.appendChild(title);
+                title.textContent = result.stats.identical ? 'Unchanged Files' : 'Modified Files';
+                section.appendChild(title);
 
                 const list = document.createElement('ul');
                 list.className = 'file-list';
                 
-                const item = createFileItem(dir1Name, result.stats.identical ? 'unchanged' : 'modified');
-                list.appendChild(item);
+                const item = document.createElement('li');
+                item.className = `file-item ${result.stats.identical ? 'unchanged' : 'modified'}`;
                 
-                fileList.appendChild(list);
+                const contentDiv = document.createElement('div');
+                contentDiv.className = 'file-content';
+                
+                const icon = document.createElement('i');
+                const fileExt = dir1Name.split('.').pop().toLowerCase();
+                const fileIcon = getFileIcon(fileExt);
+                icon.innerHTML = fileIcon;
+                contentDiv.appendChild(icon);
+                
+                const text = document.createElement('span');
+                text.textContent = dir1Name;
+                contentDiv.appendChild(text);
+                
+                item.appendChild(contentDiv);
+                list.appendChild(item);
+                section.appendChild(list);
+                fileList.appendChild(section);
                 resultContent.appendChild(fileList);
 
-                // 添加空白卡片
+                // 添加对比结果卡片
                 const detailCard = document.createElement('div');
                 detailCard.className = 'detail-card';
                 detailCard.innerHTML = `
-                    <div class="placeholder">Click on a file from the left panel to view its content and diff report</div>
                     <iframe id="detail-frame"></iframe>
                 `;
                 resultContent.appendChild(detailCard);
@@ -1239,6 +1278,18 @@
                 resultDiv.innerHTML = '';
                 resultDiv.appendChild(resultHeader);
                 resultDiv.appendChild(resultContent);
+
+                // 直接显示对比结果
+                const detailFrame = document.getElementById('detail-frame');
+                if (detailFrame) {
+                    if (result.stats.identical) {
+                        // 如果文件相同，显示文件内容
+                        viewFile(dir1Name, 'dir1');
+                    } else {
+                        // 如果文件不同，显示差异对比
+                        compareFile(dir1Name);
+                    }
+                }
                 
                 return;
             }
