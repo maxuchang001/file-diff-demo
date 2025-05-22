@@ -9,6 +9,7 @@ import text_diff
 import diffPdfV2
 from datetime import datetime
 from ipxact_visualizer import IPXACTVisualizer
+from file2html import convert_to_html
 
 def diffControl(file1, file2, file1_name, file2_name, ext):
     try:
@@ -17,8 +18,8 @@ def diffControl(file1, file2, file1_name, file2_name, ext):
         
         # 根据文件类型选择比较方法
         if ext in ['.txt', '.py', '.c', '.cpp', '.h', '.hpp', '.java', '.js', '.html', '.css', '.json', '.md', '.csv']:
-            # 文本文件比较
-            status, result = text_diff.generate_text_diff(file1, file2, file1_name, file2_name)
+            # 文本文件比较，统一用convert_to_html，带AI总结
+            status, result = convert_to_html(file1, file2)
             return status, result, None
         elif ext == '.pdf':
             # PDF文件比较

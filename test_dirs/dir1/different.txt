@@ -1,1 +1,19 @@
-This file is different in dir1
+This is a test file.
+Used to test the text difference comparison function.
+Contains some basic content.
+There are also some code examples:
+
+def hello_world():
+print("Hello, World!")
+Return False # Modify the return value
+
+#This is an updated annotation
+class TestClass:
+def __init__(self):
+self.name = "Test"
+Self. version="1.0" # Add new attribute
+        
+def get_name(self):
+return self.name
+        
+Def get-vversion (self): # Add new method

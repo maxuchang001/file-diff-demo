@@ -1,0 +1,79 @@
+
+        <!DOCTYPE html>
+        <html lang="en">
+        <head>
+            <meta charset="UTF-8">
+            <title>different.txt</title>
+            <style>
+                body { font-family: sans-serif; padding: 20px; text-align: center;}
+                img { box-shadow: 0 0 10px rgba(0,0,0,0.2); margin-bottom: 30px; }
+                .file-list { list-style: none; padding: 0; }
+                .file-list li { 
+                    margin: 10px 0; 
+                    padding: 10px; 
+                    background-color: #f5f5f5; 
+                    border-radius: 5px;
+                    cursor: pointer;
+                    transition: background-color 0.3s;
+                }
+                .file-list li:hover { 
+                    background-color: #e0e0e0;
+                }
+                .file-list li a {
+                    text-decoration: none;
+                    color: #333;
+                    display: block;
+                    width: 100%;
+                    height: 100%;
+                }
+                .summary-section {
+                    text-align: left;
+                    margin: 20px 0;
+                    padding: 20px;
+                    background-color: #f8f9fa;
+                    border-radius: 5px;
+                    border-left: 4px solid #007bff;
+                }
+                .content-section {
+                    text-align: left;
+                    margin: 20px 0;
+                }
+                .content-section pre {
+                    background-color: #f8f9fa;
+                    padding: 15px;
+                    border-radius: 5px;
+                    overflow-x: auto;
+                }
+            </style>
+        </head>
+        <body>
+            
+                /static/diffs/diff_tmpc5d_vtv_.html
+                <div class="summary-section">
+                    <h3>AI Summary of Changes</h3>
+                    <div>
+  <h2>Text Differences Analysis</h2>
+  <p>The provided text differences show changes made to a code snippet.</p>
+  <h3>Key Changes:</h3>
+  <ul>
+    <li><code>hello_world()</code> function:
+      <ul>
+        <li>Changed <code>Return False</code> to <code>return True</code> (case-sensitive correction and changed return value).</li>
+      </ul>
+    </li>
+    <li>Removed annotation and replaced with a comment: <code>#This is a comment</code>.</li>
+    <li><code>TestClass</code>:
+      <ul>
+        <li>Removed <code>Self.version="1.0"</code> (attribute not added, likely a typo with 'self' instead of 'Self').</li>
+        <li>Removed method <code>get-vversion(self)</code> (likely intended to be <code>get_version(self)</code>).</li>
+      </ul>
+    </li>
+  </ul>
+  <h3>Impact:</h3>
+  <p>The changes affect the behavior of the <code>hello_world()</code> function and the structure of the <code>TestClass</code>. The <code>hello_world()</code> function now returns <code>True</code> instead of <code>False</code>. The <code>TestClass</code> has a reduced set of attributes and methods.</p>
+</div>
+                </div>
+                
+        </body>
+        </html>
+        
