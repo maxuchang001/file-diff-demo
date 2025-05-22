@@ -39,6 +39,10 @@
             position: relative;
         }
 
+        .comparison-result .container {
+            max-width: 1536px;
+        }
+
         .header {
             text-align: center;
             margin-bottom: 3rem;
@@ -397,6 +401,184 @@
         .file-item.unchanged {
             color: #6b7280;
         }
+
+        /* 添加结果页面样式 */
+        .result-header {
+            text-align: center;
+            margin-bottom: 2rem;
+            padding: 1rem 0;
+        }
+
+        .result-header h1 {
+            font-size: 2rem;
+            font-weight: 700;
+            color: var(--text-color);
+            margin-bottom: 0.5rem;
+            background: linear-gradient(135deg, var(--primary-color), var(--secondary-color));
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+        }
+
+        .result-content {
+            display: grid;
+            grid-template-columns: 1fr 3fr;
+            gap: 2rem;
+            margin-bottom: 2rem;
+            height: calc(100vh - 240px);
+            min-height: 500px;
+        }
+
+        .file-lists {
+            background: var(--card-bg);
+            border-radius: 1rem;
+            padding: 1.5rem;
+            box-shadow: var(--shadow);
+            height: 100%;
+            overflow-y: auto;
+        }
+
+        .detail-card {
+            background: var(--card-bg);
+            border-radius: 1rem;
+            padding: 1.5rem;
+            box-shadow: var(--shadow);
+            height: 100%;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+        }
+
+        .detail-card .placeholder {
+            text-align: center;
+            color: var(--text-color);
+            font-size: 1.25rem;
+            font-weight: 500;
+            opacity: 0.7;
+        }
+
+        .detail-card iframe {
+            width: 100%;
+            height: 100%;
+            border: none;
+            display: none;
+        }
+
+        .detail-card iframe.active {
+            display: block;
+        }
+
+        .stats {
+            display: grid;
+            grid-template-columns: repeat(2, 1fr);
+            gap: 2rem;
+            max-width: 90%;
+            margin: -6rem auto 0;
+            align-self: center;
+            height: fit-content;
+        }
+
+        .stat-card {
+            background: var(--card-bg);
+            border-radius: 1rem;
+            box-shadow: var(--shadow);
+            transition: all 0.3s ease;
+            text-align: center;
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            width: 100%;
+            height: 200px;
+            max-width: 400px;
+            max-height: 200px;
+        }
+
+        .stat-card:hover {
+            transform: translateY(-2px);
+            box-shadow: var(--shadow-hover);
+        }
+
+        .stat-card h4 {
+            font-size: 1.25rem;
+            font-weight: 600;
+            color: var(--text-color);
+            margin-bottom: 0.5rem;
+        }
+
+        .stat-card .number {
+            font-size: 2.5rem;
+            font-weight: 700;
+            line-height: 1;
+        }
+
+        .result-section {
+            margin-bottom: 1.5rem;
+        }
+
+        .result-section:last-child {
+            margin-bottom: 0;
+        }
+
+        .result-section h3 {
+            font-size: 1.25rem;
+            font-weight: 600;
+            color: var(--text-color);
+            margin-bottom: 0.75rem;
+            padding-bottom: 0.5rem;
+            border-bottom: 2px solid var(--border-color);
+        }
+
+        .file-list {
+            list-style: none;
+            padding: 0;
+            margin: 0;
+        }
+
+        @media (max-width: 768px) {
+            .result-content {
+                grid-template-columns: 1fr;
+            }
+            
+            .stats {
+                grid-template-columns: repeat(2, 1fr);
+            }
+        }
+
+        .stat-card.added {
+            border-top: 4px solid #059669;
+        }
+
+        .stat-card.removed {
+            border-top: 4px solid #dc2626;
+        }
+
+        .stat-card.modified {
+            border-top: 4px solid #d97706;
+        }
+
+        .stat-card.unchanged {
+            border-top: 4px solid #6b7280;
+        }
+
+        .result-section.added h3 {
+            color: #059669;
+            border-bottom-color: #059669;
+        }
+
+        .result-section.removed h3 {
+            color: #dc2626;
+            border-bottom-color: #dc2626;
+        }
+
+        .result-section.modified h3 {
+            color: #d97706;
+            border-bottom-color: #d97706;
+        }
+
+        .result-section.unchanged h3 {
+            color: #6b7280;
+            border-bottom-color: #6b7280;
+        }
     </style>
 </head>
 <body>
@@ -404,10 +586,10 @@
         <button class="reset-btn" id="reset-btn">Start New Analysis</button>
         <div class="upload-type-modal" id="upload-type-modal">
             <div class="upload-type-content">
-                <div class="upload-type-title">请选择上传类型</div>
+                <div class="upload-type-title">Please select upload type</div>
                 <div class="upload-type-buttons">
-                    <button class="upload-type-btn file" data-type="file">上传文件</button>
-                    <button class="upload-type-btn directory" data-type="directory">上传文件夹</button>
+                    <button class="upload-type-btn file" data-type="file">Upload File</button>
+                    <button class="upload-type-btn directory" data-type="directory">Upload Directory</button>
                 </div>
             </div>
         </div>
@@ -756,40 +938,56 @@
                                 // 第一次上传
                                 if (entry.isDirectory) {
                                     firstUploadType = 'directory';
+                                    uploadType1 = 'directory';
                                     pathElement.textContent = entry.name;
                                     dir1Name = entry.name;
+                                    dropZone.querySelector('i').innerHTML = '📁';
+                                    dropZone.querySelector('span').textContent = entry.name;
                                     dir1Files = await readAllFiles(entry, '');
                                 } else if (entry.isFile) {
                                     firstUploadType = 'file';
+                                    uploadType1 = 'file';
                                     const fileName = entry.name;
                                     const fileExt = fileName.split('.').pop().toLowerCase();
                                     firstUploadExt = fileExt;
                                     pathElement.textContent = fileName;
                                     dir1Name = fileName;
+                                    // 根据文件类型设置图标
+                                    const icon = getFileIcon(fileExt);
+                                    dropZone.querySelector('i').innerHTML = icon;
+                                    dropZone.querySelector('span').textContent = fileName;
                                     dir1Files = [await new Promise(resolve => entry.file(resolve))];
                                 }
                             } else {
                                 // 第二次上传
                                 if (firstUploadType === 'directory' && !entry.isDirectory) {
-                                    alert('请上传文件夹作为第二个项目');
+                                    alert('Please upload a directory as the second item');
                                     return;
                                 } else if (firstUploadType === 'file') {
                                     if (!entry.isFile) {
-                                        alert('请上传文件作为第二个项目');
+                                        alert('Please upload a file as the second item');
                                         return;
                                     }
                                     const fileName = entry.name;
                                     const fileExt = fileName.split('.').pop().toLowerCase();
                                     if (fileExt !== firstUploadExt) {
-                                        alert(`请上传相同扩展名的文件 (.${firstUploadExt})`);
+                                        alert(`Please upload a file with the same extension (.${firstUploadExt})`);
                                         return;
                                     }
+                                    uploadType2 = 'file';
                                     pathElement.textContent = fileName;
                                     dir2Name = fileName;
+                                    // 根据文件类型设置图标
+                                    const icon = getFileIcon(fileExt);
+                                    dropZone.querySelector('i').innerHTML = icon;
+                                    dropZone.querySelector('span').textContent = fileName;
                                     dir2Files = [await new Promise(resolve => entry.file(resolve))];
                                 } else if (entry.isDirectory) {
+                                    uploadType2 = 'directory';
                                     pathElement.textContent = entry.name;
                                     dir2Name = entry.name;
+                                    dropZone.querySelector('i').innerHTML = '📁';
+                                    dropZone.querySelector('span').textContent = entry.name;
                                     dir2Files = await readAllFiles(entry, '');
                                 }
                             }
@@ -867,10 +1065,10 @@
                 // 检查是否有预先生成的差异报告
                 if (window.diffReports && window.diffReports[filePath]) {
                     // 使用预先生成的差异报告
-                    document.getElementById('comparison-result').style.display = 'none';
-                    document.getElementById('diff-viewer').style.display = 'block';
-                    const diffFrame = document.getElementById('diff-frame');
-                    diffFrame.src = window.diffReports[filePath];
+                    const detailFrame = document.getElementById('detail-frame');
+                    detailFrame.src = window.diffReports[filePath];
+                    detailFrame.classList.add('active');
+                    document.querySelector('.detail-card .placeholder').style.display = 'none';
                     return;
                 }
 
@@ -909,11 +1107,11 @@
                     throw new Error(result.error || 'Comparison failed');
                 }
                 if (result.status === 'ok') {
-                    // 页面内展示对比报告
-                    document.getElementById('comparison-result').style.display = 'none';
-                    document.getElementById('diff-viewer').style.display = 'block';
-                    const diffFrame = document.getElementById('diff-frame');
-                    diffFrame.src = result.diff_url;
+                    // 在右侧面板显示对比报告
+                    const detailFrame = document.getElementById('detail-frame');
+                    detailFrame.src = result.diff_url;
+                    detailFrame.classList.add('active');
+                    document.querySelector('.detail-card .placeholder').style.display = 'none';
                 } else {
                     alert(result.message || '不支持的文件类型');
                 }
@@ -928,10 +1126,10 @@
                 const contents = type === 'dir1' ? window.dir1Contents : window.dir2Contents;
                 if (contents && contents[file] && contents[file].html_path) {
                     // 使用预先生成的HTML报告
-                    document.getElementById('comparison-result').style.display = 'none';
-                    document.getElementById('diff-viewer').style.display = 'block';
-                    const diffFrame = document.getElementById('diff-frame');
-                    diffFrame.src = contents[file].html_path;
+                    const detailFrame = document.getElementById('detail-frame');
+                    detailFrame.src = contents[file].html_path;
+                    detailFrame.classList.add('active');
+                    document.querySelector('.detail-card .placeholder').style.display = 'none';
                     return;
                 }
 
@@ -949,11 +1147,11 @@
                 const result = await response.json();
                 
                 if (result.status === 'ok') {
-                    // 在当前页面显示文件内容
-                    document.getElementById('comparison-result').style.display = 'none';
-                    document.getElementById('diff-viewer').style.display = 'block';
-                    const diffFrame = document.getElementById('diff-frame');
-                    diffFrame.src = result.html_url;
+                    // 在右侧面板显示文件内容
+                    const detailFrame = document.getElementById('detail-frame');
+                    detailFrame.src = result.html_url;
+                    detailFrame.classList.add('active');
+                    document.querySelector('.detail-card .placeholder').style.display = 'none';
                 } else {
                     throw new Error(result.error || 'Failed to view file');
                 }
@@ -1000,23 +1198,20 @@
 
             // 如果是单文件比对
             if (result.is_single_file) {
-                // 创建新的内容容器
-                const content = document.createElement('div');
-                
-                // 创建统计卡片
-                const stats = document.createElement('div');
-                stats.className = 'stats';
-                stats.innerHTML = `
-                    <div class="stat-card">
-                        <h4>File Comparison Result</h4>
-                        <div class="number">${result.stats.identical ? 'Identical' : 'Different'}</div>
-                    </div>
+                // 添加结果标题
+                const resultHeader = document.createElement('div');
+                resultHeader.className = 'result-header';
+                resultHeader.innerHTML = `
+                    <h1>Comparison Results</h1>
                 `;
-                content.appendChild(stats);
 
+                // 创建新的内容容器
+                const resultContent = document.createElement('div');
+                resultContent.className = 'result-content';
+                
                 // 创建文件列表
                 const fileList = document.createElement('div');
-                fileList.className = 'result-section';
+                fileList.className = 'file-lists';
                 
                 const title = document.createElement('h3');
                 title.textContent = 'File Details';
@@ -1029,48 +1224,100 @@
                 list.appendChild(item);
                 
                 fileList.appendChild(list);
-                content.appendChild(fileList);
+                resultContent.appendChild(fileList);
+
+                // 添加空白卡片
+                const detailCard = document.createElement('div');
+                detailCard.className = 'detail-card';
+                detailCard.innerHTML = `
+                    <div class="placeholder">Click on a file from the left panel to view its content and diff report</div>
+                    <iframe id="detail-frame"></iframe>
+                `;
+                resultContent.appendChild(detailCard);
                 
                 // 清空并添加新的内容
                 resultDiv.innerHTML = '';
-                resultDiv.appendChild(content);
+                resultDiv.appendChild(resultHeader);
+                resultDiv.appendChild(resultContent);
                 
                 return;
             }
 
             // 文件夹比对的显示逻辑
-            // 显示统计信息
-            const stats = result.stats;
-            document.getElementById('stats').innerHTML = `
-                <div class="stat-card">
-                    <h4>Added Files</h4>
-                    <div class="number">${stats.only_in_dir2 || 0}</div>
-                </div>
-                <div class="stat-card">
-                    <h4>Removed Files</h4>
-                    <div class="number">${stats.only_in_dir1 || 0}</div>
-                </div>
-                <div class="stat-card">
-                    <h4>Modified Files</h4>
-                    <div class="number">${stats.different || 0}</div>
-                </div>
-                <div class="stat-card">
-                    <h4>Unchanged Files</h4>
-                    <div class="number">${stats.identical || 0}</div>
-                </div>
+            // 添加结果标题
+            const resultHeader = document.createElement('div');
+            resultHeader.className = 'result-header';
+            resultHeader.innerHTML = `
+                <h1>Comparison Results</h1>
             `;
 
-            // 显示所有文件列表
-            document.querySelectorAll('.result-section').forEach(section => {
-                section.style.display = 'block';
-            });
+            // 创建结果内容容器
+            const resultContent = document.createElement('div');
+            resultContent.className = 'result-content';
+
+            // 创建文件列表容器
+            const fileLists = document.createElement('div');
+            fileLists.className = 'file-lists';
+
+            // 新增文件区域
+            const addedSection = document.createElement('div');
+            addedSection.className = 'result-section added';
+            addedSection.innerHTML = `
+                <h3>Added Files</h3>
+                <ul class="file-list" id="added-files"></ul>
+            `;
+            fileLists.appendChild(addedSection);
+
+            // 删除文件区域
+            const removedSection = document.createElement('div');
+            removedSection.className = 'result-section removed';
+            removedSection.innerHTML = `
+                <h3>Removed Files</h3>
+                <ul class="file-list" id="removed-files"></ul>
+            `;
+            fileLists.appendChild(removedSection);
+
+            // 修改文件区域
+            const modifiedSection = document.createElement('div');
+            modifiedSection.className = 'result-section modified';
+            modifiedSection.innerHTML = `
+                <h3>Modified Files</h3>
+                <ul class="file-list" id="modified-files"></ul>
+            `;
+            fileLists.appendChild(modifiedSection);
+
+            // 未变文件区域
+            const unchangedSection = document.createElement('div');
+            unchangedSection.className = 'result-section unchanged';
+            unchangedSection.innerHTML = `
+                <h3>Unchanged Files</h3>
+                <ul class="file-list" id="unchanged-files"></ul>
+            `;
+            fileLists.appendChild(unchangedSection);
+
+            // 添加空白卡片
+            const detailCard = document.createElement('div');
+            detailCard.className = 'detail-card';
+            detailCard.innerHTML = `
+                <div class="placeholder">Click on a file from the left panel to view its content and diff report</div>
+                <iframe id="detail-frame"></iframe>
+            `;
+            resultContent.appendChild(detailCard);
+
+            // 将文件列表和空白卡片添加到内容容器
+            resultContent.appendChild(fileLists);
+            resultContent.appendChild(detailCard);
+
+            // 清空原有内容并添加新内容
+            resultDiv.innerHTML = '';
+            resultDiv.appendChild(resultHeader);
+            resultDiv.appendChild(resultContent);
 
             // 显示文件列表
             const results = result.comparison_results;
             
             // 新增文件
             const addedFilesList = document.getElementById('added-files');
-            addedFilesList.innerHTML = '';
             if (results.only_in_dir2) {
                 results.only_in_dir2.forEach(file => {
                     addedFilesList.appendChild(createFileItem(file, 'added'));
@@ -1079,7 +1326,6 @@
 
             // 删除文件
             const removedFilesList = document.getElementById('removed-files');
-            removedFilesList.innerHTML = '';
             if (results.only_in_dir1) {
                 results.only_in_dir1.forEach(file => {
                     removedFilesList.appendChild(createFileItem(file, 'removed'));
@@ -1088,7 +1334,6 @@
 
             // 修改文件
             const modifiedFilesList = document.getElementById('modified-files');
-            modifiedFilesList.innerHTML = '';
             if (results.different) {
                 results.different.forEach(file => {
                     modifiedFilesList.appendChild(createFileItem(file, 'modified'));
@@ -1097,7 +1342,6 @@
 
             // 未变文件
             const unchangedFilesList = document.getElementById('unchanged-files');
-            unchangedFilesList.innerHTML = '';
             if (results.identical) {
                 results.identical.forEach(file => {
                     unchangedFilesList.appendChild(createFileItem(file, 'unchanged'));
@@ -1235,6 +1479,12 @@
                 });
                 window.tempDirs = null;
             }
+
+            // 重置右侧面板
+            const detailFrame = document.getElementById('detail-frame');
+            detailFrame.src = '';
+            detailFrame.classList.remove('active');
+            document.querySelector('.detail-card .placeholder').style.display = 'block';
         }
 
         // 为重置按钮添加点击事件
