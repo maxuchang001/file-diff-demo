@@ -11,10 +11,19 @@ import io
 from concurrent.futures import ThreadPoolExecutor, as_completed
 import multiprocessing
 import json
+import openai  # 新增导入
 
 # 设置 Graphviz 可执行文件路径
 graphviz.backend.dot_command.DOT_BINARY = r"C:\Program Files\Graphviz\bin\dot.exe"
 
+# 设置 OpenAI API 配置
+api_key = "c66bc18de21811217e5efa97085dae33b0028ef845e72301a054c9850221a3b0"
+api_base = "https://api.together.xyz/v1/"
+client = openai.OpenAI(api_key=api_key, base_url=api_base)
+model = "meta-llama/Llama-4-Scout-17B-16E-Instruct"
+
+# 设置 OpenAI API 密钥
+openai.api_key = api_key
 
 def get_temp_filename(prefix, suffix):
     """生成带时间戳和唯一标识符的临时文件名"""
@@ -962,14 +971,15 @@ class IPXACTVisualizer:
                         stats[section]["removed"] += 1
                     else:
                         stats[section]["added"] += 1
-
+            
             # 显示统计摘要
             html_content += '<div class="section" id="summary">'
             html_content += "<h2>Summary of Changes</h2>"
+            summary_html = ''
             for section, counts in stats.items():
                 if sum(counts.values()) > 0:
-                    html_content += f'<div class="summary-item">'
-                    html_content += f"<strong>{section}:</strong> "
+                    summary_html += f'<div class="summary-item">'
+                    summary_html += f"<strong>{section}:</strong> "
                     changes = []
                     if counts["added"] > 0:
                         changes.append(f"{counts['added']} added")
@@ -977,9 +987,11 @@ class IPXACTVisualizer:
                         changes.append(f"{counts['removed']} removed")
                     if counts["modified"] > 0:
                         changes.append(f"{counts['modified']} modified")
-                    html_content += ", ".join(changes)
-                    html_content += "</div>"
+                    summary_html += ", ".join(changes)
+                    summary_html += "</div>"
+            html_content += summary_html
             html_content += "</div>"
+            print("\n===== IPXACT difference summary HTML fragment =====\n" + summary_html + "\n===============================\n")
 
             # 为每个部分生成内容
             sections = [
@@ -1179,6 +1191,52 @@ class IPXACTVisualizer:
                     html_content += "</div>"
 
                 html_content += "</div>"
+            
+            # 生成结构化diff文本
+            diff_lines = []
+            for section in sections:
+                items1 = {item["name"]: item for item in elements1.get(section, [])}
+                items2 = {item["name"]: item for item in elements2.get(section, [])}
+                all_names = set(items1.keys()) | set(items2.keys())
+                
+                if all_names:
+                    diff_lines.append(f"\n=== {sections_map[section]} ===")
+                    
+                    for name in sorted(all_names):
+                        if name in items1 and name in items2:
+                            if items1[name] != items2[name]:
+                                diff_lines.append(f"\nModified {name}:")
+                                diff_lines.append("Version 1:")
+                                diff_lines.append(json.dumps(items1[name], indent=2))
+                                diff_lines.append("Version 2:")
+                                diff_lines.append(json.dumps(items2[name], indent=2))
+                        elif name in items1:
+                            diff_lines.append(f"\nRemoved {name}:")
+                            diff_lines.append(json.dumps(items1[name], indent=2))
+                        else:
+                            diff_lines.append(f"\nAdded {name}:")
+                            diff_lines.append(json.dumps(items2[name], indent=2))
+            
+            diff_text = '\n'.join(diff_lines)
+
+            # 构造prompt并调用AI生成总结
+            prompt = f"""Please analyze the following IPXACT structural differences and provide a concise summary of the main changes and their impact. The output should be a clean, left-aligned HTML div fragment in English:\n\n{diff_text}\n"""
+            try:
+                response = client.chat.completions.create(
+                    model=model,
+                    messages=[{"role": "user", "content": prompt}],
+                    max_tokens=1024,
+                )
+                ai_summary_html = response.choices[0].message.content
+            except Exception as e:
+                ai_summary_html = f"<div>AI summary generation failed: {e}</div>"
+
+            # 插入AI总结到HTML
+            html_content += '<div class="section" id="ai-summary">'
+            html_content += "<h2>AI Summary of Changes</h2>"
+            html_content += ai_summary_html
+            html_content += "</div>"
+            print("\n===== IPXACT difference AI summary HTML fragment =====\n" + ai_summary_html + "\n===============================\n")
 
             html_content += "</div></body></html>"
 
