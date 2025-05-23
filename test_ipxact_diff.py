@@ -20,7 +20,6 @@ def test_ipxact_diff():
     success = visualizer.generate_ipxact_diff_html(xml1_path, xml2_path, output_path)
     
     if success:
-        print(f"差异报告已生成: {output_path}")
         # 自动打开生成的HTML文件
         webbrowser.open('file://' + os.path.realpath(output_path))
     else:

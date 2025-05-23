@@ -25,31 +25,6 @@ model = "meta-llama/Llama-4-Scout-17B-16E-Instruct"
 # 设置 OpenAI API 密钥
 openai.api_key = api_key
 
-def get_temp_filename(prefix, suffix):
-    """生成带时间戳和唯一标识符的临时文件名"""
-    timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
-    unique_id = str(uuid.uuid4())[:8]
-    return f"{prefix}_{timestamp}_{unique_id}{suffix}"
-
-
-def image_to_base64(image_path):
-    """将图片文件转换为base64字符串"""
-    try:
-        with open(image_path, "rb") as image_file:
-            encoded_string = base64.b64encode(image_file.read()).decode("utf-8")
-            # 根据文件扩展名确定MIME类型
-            ext = os.path.splitext(image_path)[1].lower()
-            mime_type = {
-                ".png": "image/png",
-                ".jpg": "image/jpeg",
-                ".jpeg": "image/jpeg",
-                ".gif": "image/gif",
-            }.get(ext, "image/png")
-            return f"data:{mime_type};base64,{encoded_string}"
-    except Exception as e:
-        print(f"Error converting image to base64: {e}")
-        return None
-
 
 def image_to_base64_from_memory(image_data):
     """将内存中的图片数据转换为base64字符串"""
@@ -69,19 +44,6 @@ def generate_graphviz_image(dot, format="png"):
         return image_data
     except Exception as e:
         print(f"Error generating graphviz image in memory: {e}")
-        return None
-
-
-def generate_matplotlib_image(fig):
-    """直接在内存中生成matplotlib图片数据"""
-    try:
-        # 使用BytesIO作为内存缓冲区
-        buf = io.BytesIO()
-        fig.savefig(buf, format="png", bbox_inches="tight", dpi=300)
-        buf.seek(0)
-        return buf.getvalue()
-    except Exception as e:
-        print(f"Error generating matplotlib image in memory: {e}")
         return None
 
 
@@ -448,14 +410,10 @@ class IPXACTVisualizer:
                     ) not in old_connections:
                         dot.edge(common_node, old_node, style="solid", color="#ffa6a6")
 
-            dot.format = "png"
-            output_path = os.path.splitext(output_img)[0]
-            dot.render(output_path, cleanup=True)
-            img_path = output_path + ".png"
-            base64_str = image_to_base64(img_path)
-            if os.path.exists(img_path):
-                os.remove(img_path)
-            return base64_str
+            image_data = generate_graphviz_image(dot)
+            if image_data:
+                return image_to_base64_from_memory(image_data)
+            return None
         except Exception as e:
             print(f"Error generating component instances diff diagram: {e}")
             return None
@@ -610,15 +568,10 @@ class IPXACTVisualizer:
                             # 新增的连接 - 绿色
                             dot.edge(name1, name2, color="#a6ffa6")
 
-            dot.format = "png"
-            output_path = get_temp_filename("bus_intf_diff", "")
-            dot.render(output_path, cleanup=True)
-            img_path = output_path + ".png"
-
-            base64_str = image_to_base64(img_path)
-            if os.path.exists(img_path):
-                os.remove(img_path)
-            return base64_str
+            image_data = generate_graphviz_image(dot)
+            if image_data:
+                return image_to_base64_from_memory(image_data)
+            return None
         except Exception as e:
             print(f"生成总线接口差异图时出错: {e}")
             return None
@@ -742,15 +695,10 @@ class IPXACTVisualizer:
                             # 新增的连接 - 使用#a6ffa6
                             dot.edge(name, block_name, color="#a6ffa6", style="solid")
 
-            dot.format = "png"
-            output_path = get_temp_filename("memory_map_diff", "")
-            dot.render(output_path, cleanup=True)
-            img_path = output_path + ".png"
-
-            base64_str = image_to_base64(img_path)
-            if os.path.exists(img_path):
-                os.remove(img_path)
-            return base64_str
+            image_data = generate_graphviz_image(dot)
+            if image_data:
+                return image_to_base64_from_memory(image_data)
+            return None
         except Exception as e:
             print(f"Error generating memory map diff diagram: {e}")
             return None
@@ -971,11 +919,11 @@ class IPXACTVisualizer:
                         stats[section]["removed"] += 1
                     else:
                         stats[section]["added"] += 1
-            
+
             # 显示统计摘要
             html_content += '<div class="section" id="summary">'
             html_content += "<h2>Summary of Changes</h2>"
-            summary_html = ''
+            summary_html = ""
             for section, counts in stats.items():
                 if sum(counts.values()) > 0:
                     summary_html += f'<div class="summary-item">'
@@ -991,7 +939,6 @@ class IPXACTVisualizer:
                     summary_html += "</div>"
             html_content += summary_html
             html_content += "</div>"
-            print("\n===== IPXACT difference summary HTML fragment =====\n" + summary_html + "\n===============================\n")
 
             # 为每个部分生成内容
             sections = [
@@ -1018,7 +965,9 @@ class IPXACTVisualizer:
             }
             for section in sections:
                 html_content += f'<div class="section" id="{section}">'
-                html_content += f'<div class="section-title">{sections_map[section]}</div>'
+                html_content += (
+                    f'<div class="section-title">{sections_map[section]}</div>'
+                )
 
                 # 生成差异表格
                 html_content += self._generate_diff_table(section, elements1, elements2)
@@ -1191,17 +1140,17 @@ class IPXACTVisualizer:
                     html_content += "</div>"
 
                 html_content += "</div>"
-            
+
             # 生成结构化diff文本
             diff_lines = []
             for section in sections:
                 items1 = {item["name"]: item for item in elements1.get(section, [])}
                 items2 = {item["name"]: item for item in elements2.get(section, [])}
                 all_names = set(items1.keys()) | set(items2.keys())
-                
+
                 if all_names:
                     diff_lines.append(f"\n=== {sections_map[section]} ===")
-                    
+
                     for name in sorted(all_names):
                         if name in items1 and name in items2:
                             if items1[name] != items2[name]:
@@ -1216,8 +1165,8 @@ class IPXACTVisualizer:
                         else:
                             diff_lines.append(f"\nAdded {name}:")
                             diff_lines.append(json.dumps(items2[name], indent=2))
-            
-            diff_text = '\n'.join(diff_lines)
+
+            diff_text = "\n".join(diff_lines)
 
             # 构造prompt并调用AI生成总结
             prompt = f"""Please analyze the following IPXACT structural differences and provide a concise summary of the main changes and their impact. The output should be a clean, left-aligned HTML div fragment in English:\n\n{diff_text}\n"""
@@ -1236,7 +1185,6 @@ class IPXACTVisualizer:
             html_content += "<h2>AI Summary of Changes</h2>"
             html_content += ai_summary_html
             html_content += "</div>"
-            print("\n===== IPXACT difference AI summary HTML fragment =====\n" + ai_summary_html + "\n===============================\n")
 
             html_content += "</div></body></html>"
 
@@ -1300,14 +1248,10 @@ class IPXACTVisualizer:
             for comp1, comp2 in connections:
                 dot.edge(comp1, comp2, color="#000000", style="solid")
 
-            dot.format = "png"
-            output_path = get_temp_filename("component_instances", "")
-            dot.render(output_path, cleanup=True)
-            img_path = output_path + ".png"
-            base64_str = image_to_base64(img_path)
-            if os.path.exists(img_path):
-                os.remove(img_path)
-            return base64_str
+            image_data = generate_graphviz_image(dot)
+            if image_data:
+                return image_to_base64_from_memory(image_data)
+            return None
         except Exception as e:
             print(f"Error generating component instances diagram: {e}")
             return None
@@ -1357,83 +1301,12 @@ class IPXACTVisualizer:
                         if mode1 == "master" and mode2 == "slave":
                             dot.edge(name1, name2, color="#000000")
 
-            dot.format = "png"
-            # 使用临时文件名
-            output_path = get_temp_filename("bus_interfaces", "")
-            dot.render(output_path, cleanup=True)
-            img_path = output_path + ".png"
-
-            # 转换为base64
-            base64_str = image_to_base64(img_path)
-            # 清理临时文件
-            if os.path.exists(img_path):
-                os.remove(img_path)
-            return base64_str
+            image_data = generate_graphviz_image(dot)
+            if image_data:
+                return image_to_base64_from_memory(image_data)
+            return None
         except Exception as e:
             print(f"生成总线接口图时出错: {e}")
-            return None
-
-    def generate_ad_hoc_connections_diagram(self, elements=None, output_img="ad_hoc_connections"):
-        """生成Ad-hoc连接关系图
-        
-        Args:
-            elements: IPXACT元素字典,如果为None则从当前XML文件中提取
-            output_img: 输出图片文件名前缀
-            
-        Returns:
-            str: base64编码的图片数据,失败返回None
-        """
-        try:
-            if elements is None:
-                # 如果没有传入elements，从当前XML文件中提取
-                elements = self.extract_ipxact_elements(self.root)
-
-            dot = graphviz.Digraph("Ad-hoc Connections", format="png")
-            dot.attr(rankdir="LR")
-
-            # 提取所有Ad-hoc连接
-            connections = []
-            for element in elements.get("adhocconnection", []):
-                name = element.get("name", "")
-                # 提取组件引用和端口引用
-                comp_refs = []
-                port_refs = []
-                for ref in element.get("internalPortReferences", []):
-                    comp_ref = ref.get("componentRef", "")
-                    port_ref = ref.get("portRef", "")
-                    if comp_ref and port_ref:
-                        comp_refs.append(comp_ref)
-                        port_refs.append(port_ref)
-                if len(comp_refs) == 2:
-                    connections.append(
-                        (name, comp_refs[0], comp_refs[1], port_refs[0], port_refs[1])
-                    )
-
-            # 添加节点和边
-            for name, comp1, comp2, port1, port2 in connections:
-                # 创建节点标签，包含端口信息
-                label1 = f"{comp1}\n({port1})"
-                label2 = f"{comp2}\n({port2})"
-
-                # 添加节点
-                dot.node(comp1, label1, shape="box", style="filled", fillcolor="lightblue")
-                dot.node(comp2, label2, shape="box", style="filled", fillcolor="lightblue")
-
-                # 添加边
-                dot.edge(comp1, comp2, label=name, style="solid", color="black")
-
-            # 渲染图
-            output_path = get_temp_filename("ad_hoc_connections", "")
-            dot.render(output_path, cleanup=True)
-            img_path = output_path + ".png"
-
-            # 将图转换为base64字符串
-            base64_str = image_to_base64(img_path)
-            if os.path.exists(img_path):
-                os.remove(img_path)
-            return base64_str
-        except Exception as e:
-            print(f"Error generating ad-hoc connections diagram: {e}")
             return None
 
     def generate_memory_map_diagram(self, output_img="memory_map"):
@@ -1486,43 +1359,13 @@ class IPXACTVisualizer:
                     # 添加黑色实线连接
                     dot.edge(mm_name, ab_name, color="#000000", style="solid")
 
-            dot.format = "png"
-            output_path = get_temp_filename("memory_map", "")
-            dot.render(output_path, cleanup=True)
-            img_path = output_path + ".png"
-
-            base64_str = image_to_base64(img_path)
-            if os.path.exists(img_path):
-                os.remove(img_path)
-            return base64_str
+            image_data = generate_graphviz_image(dot)
+            if image_data:
+                return image_to_base64_from_memory(image_data)
+            return None
         except Exception as e:
             print(f"Error generating memory map diagram: {e}")
             return None
-
-    def _generate_component_diagram(self, elements1, elements2):
-        """生成组件和实例关系图"""
-        diagram = []
-
-        # 添加组件节点
-        comp1 = elements1.get("component", [{}])[0]
-        comp2 = elements2.get("component", [{}])[0]
-        comp_name = comp1.get("name", "N/A")
-        status = self._get_element_status(comp1, comp2)
-
-        diagram.append(f'    {comp_name}["{comp_name}"]')
-
-        # 添加实例节点，保持原始顺序
-        instances = []
-        for inst in elements1.get("componentinstance", []):
-            inst_name = inst.get("name", "N/A")
-            instances.append(inst_name)
-            diagram.append(f'    {inst_name}["{inst_name}"]')
-
-        # 按照原始顺序添加连接关系
-        for inst_name in instances:
-            diagram.append(f"    {comp_name} --> {inst_name}")
-
-        return "\n".join(diagram)
 
     def generate_component_diagram(self, output_img="component"):
         """生成组件图"""
@@ -1600,15 +1443,10 @@ class IPXACTVisualizer:
                 )
                 dot.edge(name, port_name)
 
-            dot.format = "png"
-            output_path = get_temp_filename("component", "")
-            dot.render(output_path, cleanup=True)
-            img_path = output_path + ".png"
-
-            base64_str = image_to_base64(img_path)
-            if os.path.exists(img_path):
-                os.remove(img_path)
-            return base64_str
+            image_data = generate_graphviz_image(dot)
+            if image_data:
+                return image_to_base64_from_memory(image_data)
+            return None
         except Exception as e:
             print(f"Error generating component diagram: {e}")
             return None
@@ -1660,16 +1498,10 @@ class IPXACTVisualizer:
             if len(bus_defs) >= 2:
                 dot.edge(bus_defs[0][0], bus_defs[1][0], color="#000000", style="solid")
 
-            # 生成图片
-            dot.format = "png"
-            output_path = get_temp_filename("bus_definition", "")
-            dot.render(output_path, cleanup=True)
-            img_path = output_path + ".png"
-
-            base64_str = image_to_base64(img_path)
-            if os.path.exists(img_path):
-                os.remove(img_path)
-            return base64_str
+            image_data = generate_graphviz_image(dot)
+            if image_data:
+                return image_to_base64_from_memory(image_data)
+            return None
         except Exception as e:
             print(f"Error generating bus definition diagram: {e}")
             return None
@@ -1759,15 +1591,10 @@ class IPXACTVisualizer:
                 else:  # ad-hoc
                     dot.edge(comp1, comp2, label="ad-hoc", style="solid", color="black")
 
-            dot.format = "png"
-            output_path = get_temp_filename("design", "")
-            dot.render(output_path, cleanup=True)
-            img_path = output_path + ".png"
-
-            base64_str = image_to_base64(img_path)
-            if os.path.exists(img_path):
-                os.remove(img_path)
-            return base64_str
+            image_data = generate_graphviz_image(dot)
+            if image_data:
+                return image_to_base64_from_memory(image_data)
+            return None
         except Exception as e:
             print(f"Error generating design diagram: {e}")
             return None
@@ -1805,15 +1632,10 @@ class IPXACTVisualizer:
             for i in range(len(views) - 1):
                 dot.edge(views[i][0], views[i + 1][0], color="black", style="solid")
 
-            dot.format = "png"
-            output_path = get_temp_filename("view", "")
-            dot.render(output_path, cleanup=True)
-            img_path = output_path + ".png"
-
-            base64_str = image_to_base64(img_path)
-            if os.path.exists(img_path):
-                os.remove(img_path)
-            return base64_str
+            image_data = generate_graphviz_image(dot)
+            if image_data:
+                return image_to_base64_from_memory(image_data)
+            return None
         except Exception as e:
             print(f"Error generating view diagram: {e}")
             return None
@@ -1852,15 +1674,10 @@ class IPXACTVisualizer:
                     style="solid",
                 )
 
-            dot.format = "png"
-            output_path = get_temp_filename("address_space", "")
-            dot.render(output_path, cleanup=True)
-            img_path = output_path + ".png"
-
-            base64_str = image_to_base64(img_path)
-            if os.path.exists(img_path):
-                os.remove(img_path)
-            return base64_str
+            image_data = generate_graphviz_image(dot)
+            if image_data:
+                return image_to_base64_from_memory(image_data)
+            return None
         except Exception as e:
             print(f"Error generating address space diagram: {e}")
             return None
@@ -1928,15 +1745,10 @@ class IPXACTVisualizer:
                     # 添加黑色实线连接
                     dot.edge(name, field_id, color="#000000", style="solid")
 
-            dot.format = "png"
-            output_path = get_temp_filename("register", "")
-            dot.render(output_path, cleanup=True)
-            img_path = output_path + ".png"
-
-            base64_str = image_to_base64(img_path)
-            if os.path.exists(img_path):
-                os.remove(img_path)
-            return base64_str
+            image_data = generate_graphviz_image(dot)
+            if image_data:
+                return image_to_base64_from_memory(image_data)
+            return None
         except Exception as e:
             print(f"Error generating register diagram: {e}")
             return None
@@ -2058,15 +1870,10 @@ class IPXACTVisualizer:
                     # 新增的连接
                     dot.edge("design", name, color="#a6ffa6")
 
-            dot.format = "png"
-            output_path = get_temp_filename("design_diff", "")
-            dot.render(output_path, cleanup=True)
-            img_path = output_path + ".png"
-
-            base64_str = image_to_base64(img_path)
-            if os.path.exists(img_path):
-                os.remove(img_path)
-            return base64_str
+            image_data = generate_graphviz_image(dot)
+            if image_data:
+                return image_to_base64_from_memory(image_data)
+            return None
         except Exception as e:
             print(f"Error generating design diff diagram: {e}")
             return None
@@ -2140,15 +1947,10 @@ class IPXACTVisualizer:
                     # 只在第二个版本中存在的连接 - 使用#a6ffa6
                     dot.edge(node1, node2, color="#a6ffa6")
 
-            dot.format = "png"
-            output_path = get_temp_filename("view_diff", "")
-            dot.render(output_path, cleanup=True)
-            img_path = output_path + ".png"
-
-            base64_str = image_to_base64(img_path)
-            if os.path.exists(img_path):
-                os.remove(img_path)
-            return base64_str
+            image_data = generate_graphviz_image(dot)
+            if image_data:
+                return image_to_base64_from_memory(image_data)
+            return None
         except Exception as e:
             print(f"Error generating view diff diagram: {e}")
             return None
@@ -2284,15 +2086,10 @@ class IPXACTVisualizer:
                             # 新增的连接 - 使用#a6ffa6
                             dot.edge(name, block_name, color="#a6ffa6", style="solid")
 
-            dot.format = "png"
-            output_path = get_temp_filename("address_space_diff", "")
-            dot.render(output_path, cleanup=True)
-            img_path = output_path + ".png"
-
-            base64_str = image_to_base64(img_path)
-            if os.path.exists(img_path):
-                os.remove(img_path)
-            return base64_str
+            image_data = generate_graphviz_image(dot)
+            if image_data:
+                return image_to_base64_from_memory(image_data)
+            return None
         except Exception as e:
             print(f"Error generating address space diff diagram: {e}")
             return None
@@ -2425,15 +2222,10 @@ class IPXACTVisualizer:
                             # 新增的连接 - 使用#a6ffa6
                             dot.edge(name, field_name, color="#a6ffa6", style="solid")
 
-            dot.format = "png"
-            output_path = get_temp_filename("register_diff", "")
-            dot.render(output_path, cleanup=True)
-            img_path = output_path + ".png"
-
-            base64_str = image_to_base64(img_path)
-            if os.path.exists(img_path):
-                os.remove(img_path)
-            return base64_str
+            image_data = generate_graphviz_image(dot)
+            if image_data:
+                return image_to_base64_from_memory(image_data)
+            return None
         except Exception as e:
             print(f"Error generating register diff diagram: {e}")
             return None
@@ -2470,15 +2262,10 @@ class IPXACTVisualizer:
                 else:
                     dot.edge("comp1", "comp2", label="Unchanged", color="gray")
 
-            dot.format = "png"
-            output_path = get_temp_filename("component_diff", "")
-            dot.render(output_path, cleanup=True)
-            img_path = output_path + ".png"
-
-            base64_str = image_to_base64(img_path)
-            if os.path.exists(img_path):
-                os.remove(img_path)
-            return base64_str
+            image_data = generate_graphviz_image(dot)
+            if image_data:
+                return image_to_base64_from_memory(image_data)
+            return None
         except Exception as e:
             print(f"Error generating component diff diagram: {e}")
             return None
@@ -2726,17 +2513,10 @@ class IPXACTVisualizer:
                                 if found:
                                     dot.edge(master_bus, slave_bus, color="#000000")
 
-            # 生成图片
-            dot.format = "png"
-            output_path = get_temp_filename("bus_definition_diff", "")
-            dot.render(output_path, cleanup=True)
-            img_path = output_path + ".png"
-
-            # 转换为base64
-            base64_str = image_to_base64(img_path)
-            if os.path.exists(img_path):
-                os.remove(img_path)
-            return base64_str
+            image_data = generate_graphviz_image(dot)
+            if image_data:
+                return image_to_base64_from_memory(image_data)
+            return None
         except Exception as e:
             print(f"生成总线定义差异图时出错: {e}")
             return None
@@ -2765,20 +2545,30 @@ class IPXACTVisualizer:
                 future_to_task = {
                     # 组件相关
                     executor.submit(visualizer.generate_component_diagram): "component",
-                    executor.submit(visualizer.generate_component_instances_diagram): "componentinstance",
+                    executor.submit(
+                        visualizer.generate_component_instances_diagram
+                    ): "componentinstance",
                     # 总线相关
-                    executor.submit(visualizer.generate_bus_definition_diagram): "busdefinition",
-                    executor.submit(visualizer.generate_bus_interfaces_diagram): "businterface",
+                    executor.submit(
+                        visualizer.generate_bus_definition_diagram
+                    ): "busdefinition",
+                    executor.submit(
+                        visualizer.generate_bus_interfaces_diagram
+                    ): "businterface",
                     # 设计相关
                     executor.submit(visualizer.generate_design_diagram): "design",
                     # 视图相关
                     executor.submit(visualizer.generate_view_diagram): "view",
                     # 地址空间相关
-                    executor.submit(visualizer.generate_address_space_diagram): "addressspace",
+                    executor.submit(
+                        visualizer.generate_address_space_diagram
+                    ): "addressspace",
                     # 寄存器相关
                     executor.submit(visualizer.generate_register_diagram): "register",
                     # 内存映射相关
-                    executor.submit(visualizer.generate_memory_map_diagram): "memorymap",
+                    executor.submit(
+                        visualizer.generate_memory_map_diagram
+                    ): "memorymap",
                 }
 
                 # 收集结果
@@ -2896,7 +2686,9 @@ class IPXACTVisualizer:
             }
             for section in sections:
                 html_content += f'<div class="section" id="{section}">'
-                html_content += f'<div class="section-title">{sections_map[section]}</div>'
+                html_content += (
+                    f'<div class="section-title">{sections_map[section]}</div>'
+                )
 
                 # 生成表格
                 html_content += self._generate_single_table(section, elements)
@@ -2908,21 +2700,29 @@ class IPXACTVisualizer:
                     html_content += f'<div class="image-container"><img src="{results["component"]}"></div>'
                     html_content += "</div>"
 
-                elif section == "componentinstance" and results.get("componentinstance"):
+                elif section == "componentinstance" and results.get(
+                    "componentinstance"
+                ):
                     html_content += '<div class="diagram-section">'
-                    html_content += '<div class="section-title">Component Instance Diagram</div>'
+                    html_content += (
+                        '<div class="section-title">Component Instance Diagram</div>'
+                    )
                     html_content += f'<div class="image-container"><img src="{results["componentinstance"]}"></div>'
                     html_content += "</div>"
 
                 elif section == "busdefinition" and results.get("busdefinition"):
                     html_content += '<div class="diagram-section">'
-                    html_content += '<div class="section-title">Bus Definition Diagram</div>'
+                    html_content += (
+                        '<div class="section-title">Bus Definition Diagram</div>'
+                    )
                     html_content += f'<div class="image-container"><img src="{results["busdefinition"]}"></div>'
                     html_content += "</div>"
 
                 elif section == "businterface" and results.get("businterface"):
                     html_content += '<div class="diagram-section">'
-                    html_content += '<div class="section-title">Bus Interface Diagram</div>'
+                    html_content += (
+                        '<div class="section-title">Bus Interface Diagram</div>'
+                    )
                     html_content += f'<div class="image-container"><img src="{results["businterface"]}"></div>'
                     html_content += "</div>"
 
@@ -2940,7 +2740,9 @@ class IPXACTVisualizer:
 
                 elif section == "addressspace" and results.get("addressspace"):
                     html_content += '<div class="diagram-section">'
-                    html_content += '<div class="section-title">Address Space Diagram</div>'
+                    html_content += (
+                        '<div class="section-title">Address Space Diagram</div>'
+                    )
                     html_content += f'<div class="image-container"><img src="{results["addressspace"]}"></div>'
                     html_content += "</div>"
 
@@ -2952,7 +2754,9 @@ class IPXACTVisualizer:
 
                 elif section == "memorymap" and results.get("memorymap"):
                     html_content += '<div class="diagram-section">'
-                    html_content += '<div class="section-title">Memory Map Diagram</div>'
+                    html_content += (
+                        '<div class="section-title">Memory Map Diagram</div>'
+                    )
                     html_content += f'<div class="image-container"><img src="{results["memorymap"]}"></div>'
                     html_content += "</div>"
 
@@ -2965,11 +2769,11 @@ class IPXACTVisualizer:
                 f.write(html_content)
 
             print(f"IPXACT报告已生成: {output_file}")
-            return 'ok', output_file
+            return "ok", output_file
 
         except Exception as e:
             print(f"生成IPXACT报告时出错: {str(e)}")
-            return 'no', str(e)
+            return "no", str(e)
 
     def _generate_single_table(self, section, elements):
         """生成单个文件的表格"""
