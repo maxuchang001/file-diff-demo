@@ -6,6 +6,7 @@ from PIL import Image, ImageDraw, ImageFont
 import cv2
 import numpy as np
 import fitz
+from io import BytesIO
 
 from summarize import summarize_image  # PyMuPDF
 
@@ -102,23 +103,21 @@ def create_combined_image(img_left, img_right, label_left="Old version", label_r
     combined.paste(img_right, (w, 0))
     return combined
 
-def generate_html_report(image_paths, html_output_path):
+def generate_html_report(image_data_list, html_output_path):
     html_summarize = ""
     html = ['<html><head><meta charset="UTF-8"><style>body { font-family: sans-serif; text-align: center; }</style></head><body>']
     html.append("<h1>PDF Variance comparison report</h1>")
-    for i, img_path in enumerate(image_paths):
+    
+    for i, img_data in enumerate(image_data_list):
         html.append(f"<h2>Page {i + 1}</h2>")
-        with open(img_path, "rb") as f:
-            encoded = base64.b64encode(f.read()).decode('utf-8')
-            html.append(f'<img src="data:image/jpeg;base64,{encoded}" style="width:100%; border:1px solid #ccc;"/><hr>')
-            # 添加智能总结
-            image_result = summarize_image(encoded)
-            html.append(image_result)
-            html_summarize += image_result
-
-        os.remove(img_path)  # 删除临时图片文件
-        # html.append(f'<img src="{img_path}" style="width:95%; border:1px solid #ccc;"><hr>')
         
+        # 直接使用内存中的图片数据
+        encoded = base64.b64encode(img_data).decode('utf-8')
+        html.append(f'<img src="data:image/jpeg;base64,{encoded}" style="width:100%; border:1px solid #ccc;"/><hr>')
+        # 添加智能总结
+        image_result = summarize_image(encoded)
+        html.append(image_result)
+        html_summarize += image_result
 
     html.append("</body></html>")
 
@@ -138,7 +137,7 @@ def diff_pdfs_side_by_side(pdf1_path, pdf2_path, file1_name, file2_name, output_
     images1 = render_pdf_to_images(pdf1_path)
     images2 = render_pdf_to_images(pdf2_path)
 
-    combined_image_paths = []
+    combined_image_data_list = []
 
     for i in range(max(len(images1), len(images2))):
         img1 = images1[i] if i < len(images1) else Image.new('RGB', images2[0].size, color='white')
@@ -148,13 +147,14 @@ def diff_pdfs_side_by_side(pdf1_path, pdf2_path, file1_name, file2_name, output_
         img1_marked, img2_marked = highlight_differences(img1, img2, mark_text_diff=mark_text)
         combined = create_combined_image(img1_marked, img2_marked, file1_name, file2_name)
 
-        out_path = os.path.join(output_dir, f"diff_page_{i+1}.png")
-        combined.save(out_path)
-        combined_image_paths.append(out_path)
+        # 将图片数据保存到内存中
+        img_byte_arr = BytesIO()
+        combined.save(img_byte_arr, format='PNG')
+        combined_image_data_list.append(img_byte_arr.getvalue())
         print(f"✅ 页面 {i+1} 完成")
 
     html_path = os.path.join(output_dir, "diff_report.html")
-    html_summarize = generate_html_report(combined_image_paths, html_path)
+    html_summarize = generate_html_report(combined_image_data_list, html_path)
     print(f"📄 HTML 报告生成完成: {html_path}")
     return html_path, html_summarize
 
