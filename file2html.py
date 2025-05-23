@@ -4,15 +4,12 @@ import mimetypes
 import uuid
 import xml.etree.ElementTree as ET
 from datetime import datetime
-import difflib
-
 from markdown import markdown
 from docx import Document
 import pandas as pd
 from pdf2image import convert_from_path
 from ipxact_visualizer import IPXACTVisualizer
-from summarize import summarize_image, client, model
-
+from text_diff import generate_text_diff
 
 def pdf_to_html(pdf_path):
     dpi=300
@@ -75,38 +72,6 @@ def is_ipxact_file(file_path):
     except Exception as e:
         return False, f"未知错误: {str(e)}"
 
-def get_text_diff_summary(text1, text2):
-    """使用AI生成文本差异的总结"""
-    # 生成差异文本
-    diff = difflib.unified_diff(
-        text1.splitlines(),
-        text2.splitlines(),
-        lineterm='',
-        n=3  # 显示上下文行数
-    )
-    diff_text = '\n'.join(diff)
-    
-    # 构建提示词
-    prompt = f"""Please analyze the following text differences and provide a concise summary in English. 
-    Focus on the key changes and their impact. Format the output as a clean, left-aligned HTML div.
-    
-    Text differences:
-    {diff_text}
-    """
-    
-    # 调用AI生成总结
-    response = client.chat.completions.create(
-        model=model,
-        messages=[
-            {
-                "role": "user",
-                "content": prompt
-            }
-        ],
-        max_tokens=1024,
-    )
-    return response.choices[0].message.content
-
 def file_to_html(file_path, compare_file_path=None):
     ext = os.path.splitext(file_path)[1].lower()
 
@@ -115,30 +80,16 @@ def file_to_html(file_path, compare_file_path=None):
             content = f.read()
             
         if compare_file_path:
-            with open(compare_file_path, 'r', encoding='utf-8') as f:
-                compare_content = f.read()
-            
-            # 使用原有的文档对比功能
-            from text_diff import generate_text_diff
-            status, diff_html = generate_text_diff(file_path, compare_file_path, 
-                                                 os.path.basename(file_path), 
-                                                 os.path.basename(compare_file_path))
+            # 使用 text_diff.py 中的功能进行文本比较
+            status, diff_html = generate_text_diff(
+                file_path, 
+                compare_file_path,
+                os.path.basename(file_path),
+                os.path.basename(compare_file_path)
+            )
             
             if status == 'ok':
-                # 读取diff_html文件内容
-                diff_html_path = os.path.join(os.path.dirname(__file__), diff_html.lstrip('/').replace('/', os.sep))
-                with open(diff_html_path, 'r', encoding='utf-8') as f:
-                    diff_html_content = f.read()
-                # 添加智能总结
-                summary = get_text_diff_summary(content, compare_content)
-                
-                return f"""
-                {diff_html_content}
-                <div class="summary-section">
-                    <h3>AI Summary of Changes</h3>
-                    {summary}
-                </div>
-                """
+                return diff_html
             else:
                 return f"<p>⚠️ 文档对比失败: {diff_html}</p>"
         else:

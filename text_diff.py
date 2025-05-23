@@ -1,11 +1,41 @@
 import difflib
 import os
-import tempfile
-import shutil
 import webbrowser
-from file2html import convert_to_html
+from summarize import client, model
 
-def generate_text_diff(file1_path, file2_path, file1_name, file2_name):
+def get_text_diff_summary(text1, text2):
+    """使用AI生成文本差异的总结"""
+    # 生成差异文本
+    diff = difflib.unified_diff(
+        text1.splitlines(),
+        text2.splitlines(),
+        lineterm='',
+        n=3  # 显示上下文行数
+    )
+    diff_text = '\n'.join(diff)
+    
+    # 构建提示词
+    prompt = f"""Please analyze the following text differences and provide a concise summary in English. 
+    Focus on the key changes and their impact. Format the output as a clean, left-aligned HTML div.
+    
+    Text differences:
+    {diff_text}
+    """
+    
+    # 调用AI生成总结
+    response = client.chat.completions.create(
+        model=model,
+        messages=[
+            {
+                "role": "user",
+                "content": prompt
+            }
+        ],
+        max_tokens=1024,
+    )
+    return response.choices[0].message.content
+
+def generate_text_diff(file1_path, file2_path, file1_name, file2_name, include_ai_summary=True):
     """
     生成两个文本文件之间的差异对比 HTML
     
@@ -14,11 +44,12 @@ def generate_text_diff(file1_path, file2_path, file1_name, file2_name):
         file2_path: 第二个文件的路径
         file1_name: 第一个文件的显示名称
         file2_name: 第二个文件的显示名称
+        include_ai_summary: 是否包含 AI 总结
         
     Returns:
         tuple: (状态, 结果)
             - 状态: 'ok' 表示成功，'no' 表示失败
-            - 结果: 成功时返回 HTML 文件路径，失败时返回错误信息
+            - 结果: 成功时返回 HTML 内容，失败时返回错误信息
     """
     try:
         print(f"开始处理文本文件差异对比:")
@@ -28,15 +59,13 @@ def generate_text_diff(file1_path, file2_path, file1_name, file2_name):
         # 读取文件内容
         with open(file1_path, 'r', encoding='utf-8') as f1:
             old_lines = f1.read().splitlines()
+            old_text = '\n'.join(old_lines)
         with open(file2_path, 'r', encoding='utf-8') as f2:
             new_lines = f2.read().splitlines()
+            new_text = '\n'.join(new_lines)
             
         print(f"文件1行数: {len(old_lines)}")
         print(f"文件2行数: {len(new_lines)}")
-            
-        # 创建临时目录
-        temp_dir = tempfile.mkdtemp()
-        output_path = os.path.join(temp_dir, 'diff.html')
         
         # 生成差异对比 HTML
         html = difflib.HtmlDiff(tabsize=4, wrapcolumn=80) \
@@ -84,28 +113,34 @@ def generate_text_diff(file1_path, file2_path, file1_name, file2_name):
                 font-family: monospace;
                 white-space: pre;
             }
+            .summary-section {
+                text-align: left;
+                margin: 20px 0;
+                padding: 20px;
+                background-color: #f8f9fa;
+                border-radius: 5px;
+                border-left: 4px solid #007bff;
+            }
         </style>
         </head>
         ''')
         
-        # 保存 HTML 文件
-        with open(output_path, 'w', encoding='utf-8') as f:
-            f.write(html)
-            
-        print(f"差异对比 HTML 已生成: {output_path}")
+        # 如果需要 AI 总结，添加总结部分
+        if include_ai_summary:
+            summary = get_text_diff_summary(old_text, new_text)
+            html = html.replace('</body>', f'''
+            <div class="summary-section">
+                <h3>AI Summary of Changes</h3>
+                {summary}
+            </div>
+            </body>
+            ''')
         
-        # 将文件复制到静态文件目录
-        static_dir = os.path.join(os.path.dirname(__file__), 'static', 'diffs')
-        os.makedirs(static_dir, exist_ok=True)
-        static_path = os.path.join(static_dir, f'diff_{os.path.basename(temp_dir)}.html')
-        shutil.copy2(output_path, static_path)
-        
-        # 返回静态文件路径
-        return 'ok', f'/static/diffs/diff_{os.path.basename(temp_dir)}.html'
+        return 'ok', html
         
     except Exception as e:
         print(f"生成差异对比时出错: {str(e)}")
-        return 'no', str(e) 
+        return 'no', str(e)
 
 def test_text_diff():
     # 获取当前工作目录
@@ -118,18 +153,21 @@ def test_text_diff():
     print("开始测试文本文件差异比较...")
 
     # 调用转换函数
-    status, html_path = convert_to_html(file1_path, file2_path)
+    status, html_content = generate_text_diff(file1_path, file2_path, 
+                                            os.path.basename(file1_path),
+                                            os.path.basename(file2_path))
 
     if status == 'ok':
-        # 如果返回的是/static/diffs/xxx.html，转换为本地真实路径
-        if html_path.startswith('/static/'):
-            html_path = html_path.lstrip('/')
-        abs_path = os.path.join(current_dir, html_path)
-        print(f"差异报告已生成: {abs_path}")
+        # 保存 HTML 内容到文件
+        output_path = os.path.join(current_dir, "test_diff.html")
+        with open(output_path, 'w', encoding='utf-8') as f:
+            f.write(html_content)
+        print(f"✅ 差异报告已保存到：{output_path}")
+        
         # 自动打开生成的HTML文件
-        webbrowser.open('file://' + os.path.realpath(abs_path))
+        webbrowser.open('file://' + os.path.realpath(output_path))
     else:
-        print(f"❌ 差异报告生成失败：{html_path}")
+        print(f"❌ 差异报告生成失败：{html_content}")
 
 if __name__ == "__main__":
     test_text_diff() 
