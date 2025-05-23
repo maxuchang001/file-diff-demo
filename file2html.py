@@ -4,6 +4,7 @@ import mimetypes
 import uuid
 import xml.etree.ElementTree as ET
 from datetime import datetime
+from io import BytesIO
 from markdown import markdown
 from docx import Document
 import pandas as pd
@@ -16,17 +17,21 @@ def pdf_to_html(pdf_path):
     # Step 1: Convert PDF to images
     images = convert_from_path(pdf_path, dpi=dpi)
 
-    # Step 2: Encode images to base64
+    # Step 2: Encode images to base64 (直接在内存中处理)
     image_tags = ""
     for idx, img in enumerate(images):
-        with open(f"page_{idx+1}.jpg", "wb") as f:
-            img.save(f, "JPEG")
-
-        with open(f"page_{idx+1}.jpg", "rb") as f:
-            encoded = base64.b64encode(f.read()).decode('utf-8')
-            image_tags += f'<div><img src="data:image/jpeg;base64,{encoded}" style="width:100%; max-width:800px;"/></div>\n'
-
-        os.remove(f"page_{idx+1}.jpg")  # 可选：删除临时图像文件
+        # 使用 BytesIO 在内存中保存图片
+        img_buffer = BytesIO()
+        img.save(img_buffer, format="JPEG")
+        img_buffer.seek(0)
+        
+        # 直接从内存中读取并编码
+        encoded = base64.b64encode(img_buffer.getvalue()).decode('utf-8')
+        image_tags += f'<div><img src="data:image/jpeg;base64,{encoded}" style="width:100%; max-width:800px;"/></div>\n'
+        
+        # 清理内存
+        img_buffer.close()
+    
     return image_tags
 
 def is_ipxact_file(file_path):
@@ -78,22 +83,7 @@ def file_to_html(file_path, compare_file_path=None):
     if ext == '.txt':
         with open(file_path, 'r', encoding='utf-8') as f:
             content = f.read()
-            
-        if compare_file_path:
-            # 使用 text_diff.py 中的功能进行文本比较
-            status, diff_html = generate_text_diff(
-                file_path, 
-                compare_file_path,
-                os.path.basename(file_path),
-                os.path.basename(compare_file_path)
-            )
-            
-            if status == 'ok':
-                return diff_html
-            else:
-                return f"<p>⚠️ 文档对比失败: {diff_html}</p>"
-        else:
-            return f"<pre>{content}</pre>"
+            return f"<pre>{content}</pre>"    
 
     elif ext == '.md':
         with open(file_path, 'r', encoding='utf-8') as f:
@@ -155,8 +145,10 @@ def convert_to_html(input_file, compare_file=None):
         output_file = f'view_{os.path.basename(input_file)}_{timestamp}.html'
         output_path = os.path.join(static_dir, output_file)
 
+        # 将文件转换为 HTML
         html_body = file_to_html(input_file, compare_file)
 
+        # 创建 HTML 模板
         html_template = f"""
         <!DOCTYPE html>
         <html lang="en">
