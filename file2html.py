@@ -136,15 +136,6 @@ def file_to_html(file_path, compare_file_path=None):
 
 def convert_to_html(input_file, compare_file=None):
     try:
-        # 使用 static/diffs 目录
-        static_dir = os.path.join(os.path.dirname(__file__), 'static', 'diffs')
-        os.makedirs(static_dir, exist_ok=True)
-        
-        # 创建唯一的输出文件名
-        timestamp = datetime.now().strftime('%Y%m%d_%H%M%S')
-        output_file = f'view_{os.path.basename(input_file)}_{timestamp}.html'
-        output_path = os.path.join(static_dir, output_file)
-
         # 将文件转换为 HTML
         html_body = file_to_html(input_file, compare_file)
 
@@ -202,13 +193,8 @@ def convert_to_html(input_file, compare_file=None):
         </body>
         </html>
         """
-
-        with open(output_path, "w", encoding="utf-8") as f:
-            f.write(html_template)
-        print(f"✅ HTML 文件已生成: {output_path}")
         
-        # 返回相对于 static 目录的路径
-        return 'ok', f'/static/diffs/{output_file}'
+        return 'ok', html_template
     except Exception as e:
         print(f"Error in create_diff_report: {str(e)}")
         return 'no', str(e)

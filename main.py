@@ -13,13 +13,7 @@ import json
 
 # 创建静态文件目录
 static_dir = os.path.join(os.path.dirname(__file__), 'static')
-diffs_dir = os.path.join(static_dir, 'diffs')
-separate_dir = os.path.join(static_dir, 'separate')
-os.makedirs(diffs_dir, exist_ok=True)
-os.makedirs(separate_dir, exist_ok=True)
-
-# 存储临时目录路径的字典
-temp_dirs = {}
+os.makedirs(static_dir, exist_ok=True)
 
 app = Flask(__name__, 
            static_folder='static',
@@ -70,16 +64,20 @@ def compare_directories():
             ext = os.path.splitext(file1_name)[1].lower()
             
             # 生成文件查看报告
-            status, html_path = convert_to_html(file1_path)
+            status, html_content = convert_to_html(file1_path)
             if status != 'ok':
-                return jsonify({'error': html_path}), 500
+                return jsonify({'error': html_content}), 500
             
             # 只在文件不同时生成差异报告
-            diff_url = None
+            diff_content = None
             if not identical:
-                status, diff_url, _ = diffControl(file1_path, file2_path, file1_name, file2_name, ext)
+                status, diff_content, _ = diffControl(file1_path, file2_path, file1_name, file2_name, ext)
                 if status != 'ok':
-                    return jsonify({'error': diff_url}), 500
+                    return jsonify({'error': diff_content}), 500
+            
+            # 清理临时目录
+            shutil.rmtree(temp_dir1)
+            shutil.rmtree(temp_dir2)
             
             # 统一返回数据结构
             return jsonify({
@@ -96,13 +94,9 @@ def compare_directories():
                     'identical': 1 if identical else 0,
                     'different': 0 if identical else 1
                 },
-                'diff_reports': {file1_name: diff_url} if diff_url else {},
-                'temp_dirs': {
-                    'dir1': temp_dir1,
-                    'dir2': temp_dir2
-                },
-                'dir1_contents': {file1_name: {'html_path': html_path}},
-                'dir2_contents': {file2_name: {'html_path': html_path}}
+                'diff_reports': {file1_name: diff_content} if diff_content else {},
+                'dir1_contents': {file1_name: {'html_content': html_content}},
+                'dir2_contents': {file2_name: {'html_content': html_content}}
             })
         else:
             # 文件夹比对逻辑
@@ -132,16 +126,68 @@ def compare_directories():
             
             # 生成差异报告
             diff_reports = {}
+            dir1_contents = {}
+            dir2_contents = {}
+            
+            # 处理不同的文件
             for file_path in results['different']:
+                print(f"\n=== 处理不同文件: {file_path} ===")
                 file1_path = os.path.join(temp_dir1, file_path)
                 file2_path = os.path.join(temp_dir2, file_path)
                 file1_name = os.path.basename(file_path)
                 file2_name = os.path.basename(file_path)
                 ext = os.path.splitext(file_path)[1].lower()
                 
-                status, diff_url, _ = diffControl(file1_path, file2_path, file1_name, file2_name, ext)
+                print(f"文件1路径: {file1_path}")
+                print(f"文件2路径: {file2_path}")
+                print(f"文件类型: {ext}")
+                
+                status, diff_content, _ = diffControl(file1_path, file2_path, file1_name, file2_name, ext)
+                print(f"差异比较结果 - 状态: {status}")
+                print(f"差异比较结果 - 内容长度: {len(diff_content) if diff_content else 0}")
+                print(f"差异比较结果 - 内容类型: {type(diff_content)}")
+                
+                if status == 'ok' and diff_content:
+                    diff_reports[file_path] = diff_content
+                    print(f"成功添加差异报告到diff_reports")
+                    print(f"当前diff_reports中的文件: {list(diff_reports.keys())}")
+                else:
+                    print(f"警告: 生成差异报告失败 - {diff_content}")
+                
+                # 生成文件内容
+                status, html_content = convert_to_html(file1_path)
                 if status == 'ok':
-                    diff_reports[file_path] = diff_url
+                    dir1_contents[file_path] = {'html_content': html_content}
+                    print(f"成功生成文件1的HTML内容")
+                
+                status, html_content = convert_to_html(file2_path)
+                if status == 'ok':
+                    dir2_contents[file_path] = {'html_content': html_content}
+                    print(f"成功生成文件2的HTML内容")
+            
+            # 处理相同的文件
+            for file_path in results['identical']:
+                file1_path = os.path.join(temp_dir1, file_path)
+                file2_path = os.path.join(temp_dir2, file_path)
+                
+                status, html_content = convert_to_html(file1_path)
+                if status == 'ok':
+                    dir1_contents[file_path] = {'html_content': html_content}
+                    dir2_contents[file_path] = {'html_content': html_content}
+            
+            # 处理只在dir1中的文件
+            for file_path in results['only_in_dir1']:
+                file1_path = os.path.join(temp_dir1, file_path)
+                status, html_content = convert_to_html(file1_path)
+                if status == 'ok':
+                    dir1_contents[file_path] = {'html_content': html_content}
+            
+            # 处理只在dir2中的文件
+            for file_path in results['only_in_dir2']:
+                file2_path = os.path.join(temp_dir2, file_path)
+                status, html_content = convert_to_html(file2_path)
+                if status == 'ok':
+                    dir2_contents[file_path] = {'html_content': html_content}
             
             # 计算统计信息
             stats = {
@@ -150,6 +196,22 @@ def compare_directories():
                 'identical': len(results['identical']),
                 'different': len(results['different'])
             }
+            
+            # 清理临时目录
+            shutil.rmtree(temp_dir1)
+            shutil.rmtree(temp_dir2)
+            
+            # 在返回结果前打印最终的数据
+            print("\n=== 最终返回的数据 ===")
+            print(f"diff_reports中的文件: {list(diff_reports.keys())}")
+            print(f"dir1_contents中的文件: {list(dir1_contents.keys())}")
+            print(f"dir2_contents中的文件: {list(dir2_contents.keys())}")
+            
+            # 确保在返回结果前，所有内容都已经生成
+            if not all(file_path in diff_reports for file_path in results['different']):
+                print("\n警告: 部分文件的差异报告未生成")
+                missing_files = set(results['different']) - set(diff_reports.keys())
+                print(f"缺失的文件: {missing_files}")
             
             return jsonify({
                 'is_single_file': False,
@@ -161,12 +223,8 @@ def compare_directories():
                 },
                 'stats': stats,
                 'diff_reports': diff_reports,
-                'temp_dirs': {
-                    'dir1': temp_dir1,
-                    'dir2': temp_dir2
-                },
-                'dir1_contents': results['dir1_contents'],
-                'dir2_contents': results['dir2_contents']
+                'dir1_contents': dir1_contents,
+                'dir2_contents': dir2_contents
             })
             
     except Exception as e:
