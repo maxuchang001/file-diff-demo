@@ -103,128 +103,48 @@ class DirectoryComparator:
         """比较两个目录的内容
         
         Returns:
-            Dict: 包含比较结果的字典
+            Dict: 包含比较结果的字典，只包含四个字段：
+                - only_in_dir1: 仅在目录1中存在的文件
+                - only_in_dir2: 仅在目录2中存在的文件
+                - identical: 两个目录中相同的文件
+                - different: 两个目录中不同的文件
         """
         print(f"Scanning directory {self.dir1}...")
-        self.dir1_contents = self.scan_directory(self.dir1)
+        dir1_contents = self.scan_directory(self.dir1)
         print(f"Scanning directory {self.dir2}...")
-        self.dir2_contents = self.scan_directory(self.dir2)
+        dir2_contents = self.scan_directory(self.dir2)
 
         print("Comparing directories...")
-        all_rel_paths = set(self.dir1_contents.keys()).union(set(self.dir2_contents.keys()))
+        all_rel_paths = set(dir1_contents.keys()).union(set(dir2_contents.keys()))
 
-        # 生成比较结果的文件名
-        timestamp = datetime.now().strftime('%Y%m%d_%H%M%S')
-        diff_file = f'diff_dir1_vs_dir2_{timestamp}.html'
-        diff_path = os.path.join(self.diff_dir, diff_file)
+        # 比较每个文件
+        for rel_path in sorted(all_rel_paths):
+            in_dir1 = rel_path in dir1_contents
+            in_dir2 = rel_path in dir2_contents
 
-        # 创建HTML报告
-        with open(diff_path, 'w', encoding='utf-8') as f:
-            f.write('<!DOCTYPE html>\n<html>\n<head>\n')
-            f.write('<meta charset="utf-8">\n')
-            f.write('<title>目录比较结果</title>\n')
-            f.write('<style>\n')
-            f.write('body { font-family: Arial, sans-serif; margin: 20px; }\n')
-            f.write('h1 { color: #333; }\n')
-            f.write('.section { margin: 20px 0; }\n')
-            f.write('.file-list { list-style-type: none; padding: 0; }\n')
-            f.write('.file-list li { margin: 5px 0; }\n')
-            f.write('.identical { color: green; }\n')
-            f.write('.different { color: orange; }\n')
-            f.write('.only-in-dir1 { color: blue; }\n')
-            f.write('.only-in-dir2 { color: red; }\n')
-            f.write('.view-link { color: #0066cc; text-decoration: none; margin-left: 10px; }\n')
-            f.write('.view-link:hover { text-decoration: underline; }\n')
-            f.write('</style>\n')
-            f.write('</head>\n<body>\n')
-            f.write('<h1>目录比较结果</h1>\n')
-
-            # 比较每个文件
-            for rel_path in sorted(all_rel_paths):
-                in_dir1 = rel_path in self.dir1_contents
-                in_dir2 = rel_path in self.dir2_contents
-
-                if in_dir1 and not in_dir2:
-                    self.comparison_results['only_in_dir1'].append(rel_path)
-                    f.write(f'<div class="section">\n')
-                    f.write(f'<h2 class="only-in-dir1">仅在目录1中: {rel_path}</h2>\n')
-                    f.write(f'<p>大小: {self.dir1_contents[rel_path]["size"]} bytes</p>\n')
-                    # 生成文件1的HTML版本
-                    status, html_path = convert_to_html(self.dir1_contents[rel_path]['path'])
-                    if status == 'ok':
-                        rel_html_path = os.path.relpath(html_path, os.path.join(os.path.dirname(__file__), 'static'))
-                        f.write(f'<a href="/{rel_html_path}" class="view-link" target="_blank">查看文件</a>\n')
-                        # 保存HTML路径到文件内容中
-                        self.dir1_contents[rel_path]['html_path'] = rel_html_path
-                    f.write(f'</div>\n')
-                elif in_dir2 and not in_dir1:
-                    self.comparison_results['only_in_dir2'].append(rel_path)
-                    f.write(f'<div class="section">\n')
-                    f.write(f'<h2 class="only-in-dir2">仅在目录2中: {rel_path}</h2>\n')
-                    f.write(f'<p>大小: {self.dir2_contents[rel_path]["size"]} bytes</p>\n')
-                    # 生成文件2的HTML版本
-                    status, html_path = convert_to_html(self.dir2_contents[rel_path]['path'])
-                    if status == 'ok':
-                        rel_html_path = os.path.relpath(html_path, os.path.join(os.path.dirname(__file__), 'static'))
-                        f.write(f'<a href="/{rel_html_path}" class="view-link" target="_blank">查看文件</a>\n')
-                        # 保存HTML路径到文件内容中
-                        self.dir2_contents[rel_path]['html_path'] = rel_html_path
-                    f.write(f'</div>\n')
-                else:
-                    if self.dir1_contents[rel_path]['type'] == 'directory' and self.dir2_contents[rel_path]['type'] == 'directory':
-                        continue
-                    elif self.dir1_contents[rel_path]['type'] == 'file' and self.dir2_contents[rel_path]['type'] == 'file':
-                        hash1 = self.dir1_contents[rel_path]['hash']
-                        hash2 = self.dir2_contents[rel_path]['hash']
-                        if hash1 == hash2:
-                            self.comparison_results['identical'].append(rel_path)
-                            f.write(f'<div class="section">\n')
-                            f.write(f'<h2 class="identical">相同文件: {rel_path}</h2>\n')
-                            f.write(f'<p>大小: {self.dir1_contents[rel_path]["size"]} bytes</p>\n')
-                            # 生成文件1的HTML版本
-                            status, html_path = convert_to_html(self.dir1_contents[rel_path]['path'])
-                            if status == 'ok':
-                                rel_html_path = os.path.relpath(html_path, os.path.join(os.path.dirname(__file__), 'static'))
-                                f.write(f'<a href="/{rel_html_path}" class="view-link" target="_blank">查看文件</a>\n')
-                                # 保存HTML路径到文件内容中
-                                self.dir1_contents[rel_path]['html_path'] = rel_html_path
-                            f.write(f'</div>\n')
-                        else:
-                            self.comparison_results['different'].append(rel_path)
-                            f.write(f'<div class="section">\n')
-                            f.write(f'<h2 class="different">不同文件: {rel_path}</h2>\n')
-                            f.write(f'<p>目录1大小: {self.dir1_contents[rel_path]["size"]} bytes</p>\n')
-                            f.write(f'<p>目录2大小: {self.dir2_contents[rel_path]["size"]} bytes</p>\n')
-                            # 生成两个文件的HTML版本
-                            status1, html_path1 = convert_to_html(self.dir1_contents[rel_path]['path'])
-                            status2, html_path2 = convert_to_html(self.dir2_contents[rel_path]['path'])
-                            if status1 == 'ok':
-                                rel_html_path1 = os.path.relpath(html_path1, os.path.join(os.path.dirname(__file__), 'static'))
-                                f.write(f'<a href="/{rel_html_path1}" class="view-link" target="_blank">查看目录1文件</a>\n')
-                                # 保存HTML路径到文件内容中
-                                self.dir1_contents[rel_path]['html_path'] = rel_html_path1
-                            if status2 == 'ok':
-                                rel_html_path2 = os.path.relpath(html_path2, os.path.join(os.path.dirname(__file__), 'static'))
-                                f.write(f'<a href="/{rel_html_path2}" class="view-link" target="_blank">查看目录2文件</a>\n')
-                                # 保存HTML路径到文件内容中
-                                self.dir2_contents[rel_path]['html_path'] = rel_html_path2
-                            f.write(f'</div>\n')
+            if in_dir1 and not in_dir2:
+                self.comparison_results['only_in_dir1'].append(rel_path)
+            elif in_dir2 and not in_dir1:
+                self.comparison_results['only_in_dir2'].append(rel_path)
+            else:
+                if dir1_contents[rel_path]['type'] == 'directory' and dir2_contents[rel_path]['type'] == 'directory':
+                    continue
+                elif dir1_contents[rel_path]['type'] == 'file' and dir2_contents[rel_path]['type'] == 'file':
+                    hash1 = dir1_contents[rel_path]['hash']
+                    hash2 = dir2_contents[rel_path]['hash']
+                    if hash1 == hash2:
+                        self.comparison_results['identical'].append(rel_path)
                     else:
                         self.comparison_results['different'].append(rel_path)
-                        f.write(f'<div class="section">\n')
-                        f.write(f'<h2 class="different">不同文件类型: {rel_path}</h2>\n')
-                        f.write(f'</div>\n')
-
-            f.write('</body>\n</html>')
+                else:
+                    self.comparison_results['different'].append(rel_path)
 
         # 返回结果
         return {
             'only_in_dir1': self.comparison_results['only_in_dir1'],
             'only_in_dir2': self.comparison_results['only_in_dir2'],
             'identical': self.comparison_results['identical'],
-            'different': self.comparison_results['different'],
-            'dir1_contents': self.dir1_contents,
-            'dir2_contents': self.dir2_contents
+            'different': self.comparison_results['different']
         }
 
     def generate_report(self) -> Dict:
