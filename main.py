@@ -41,24 +41,31 @@ def serve_static(path):
     return send_from_directory("public", path)
 
 
-def process_different_file(file_path: str, temp_dir1: str, temp_dir2: str) -> Tuple[str, str]:
+def process_different_file(
+    file_path: str, temp_dir1: str, temp_dir2: str
+) -> Tuple[str, str]:
     """处理不同的文件，生成差异报告"""
     file1_path = os.path.join(temp_dir1, file_path)
     file2_path = os.path.join(temp_dir2, file_path)
     status, diff_content, _ = generate_diff_report(file1_path, file2_path)
     return file_path, diff_content if status == "ok" else None
 
-def process_identical_file(file_path: str, temp_dir1: str, temp_dir2: str) -> Tuple[str, str]:
+
+def process_identical_file(
+    file_path: str, temp_dir1: str, temp_dir2: str
+) -> Tuple[str, str]:
     """处理相同的文件，生成HTML内容"""
     file1_path = os.path.join(temp_dir1, file_path)
     status, html_content = convert_to_html(file1_path)
     return file_path, html_content if status == "ok" else None
+
 
 def process_single_file(file_path: str, temp_dir: str) -> Tuple[str, str]:
     """处理单个文件，生成HTML内容"""
     file_path_full = os.path.join(temp_dir, file_path)
     status, html_content = convert_to_html(file_path_full)
     return file_path, html_content if status == "ok" else None
+
 
 @app.route("/api/compare", methods=["POST"])
 def compare_directories():
@@ -164,28 +171,38 @@ def compare_directories():
             dir2_contents = {}
 
             # 使用线程池并行处理文件
-            with ThreadPoolExecutor(max_workers=min(32, os.cpu_count() * 4)) as executor:
+            with ThreadPoolExecutor(
+                max_workers=min(32, os.cpu_count() * 4)
+            ) as executor:
                 # 处理不同的文件
                 diff_futures = {
-                    executor.submit(process_different_file, file_path, temp_dir1, temp_dir2): file_path
+                    executor.submit(
+                        process_different_file, file_path, temp_dir1, temp_dir2
+                    ): file_path
                     for file_path in results["different"]
                 }
 
                 # 处理相同的文件
                 identical_futures = {
-                    executor.submit(process_identical_file, file_path, temp_dir1, temp_dir2): file_path
+                    executor.submit(
+                        process_identical_file, file_path, temp_dir1, temp_dir2
+                    ): file_path
                     for file_path in results["identical"]
                 }
 
                 # 处理只在dir1中的文件
                 dir1_futures = {
-                    executor.submit(process_single_file, file_path, temp_dir1): file_path
+                    executor.submit(
+                        process_single_file, file_path, temp_dir1
+                    ): file_path
                     for file_path in results["only_in_dir1"]
                 }
 
                 # 处理只在dir2中的文件
                 dir2_futures = {
-                    executor.submit(process_single_file, file_path, temp_dir2): file_path
+                    executor.submit(
+                        process_single_file, file_path, temp_dir2
+                    ): file_path
                     for file_path in results["only_in_dir2"]
                 }
 
@@ -256,4 +273,5 @@ def compare_directories():
 
 
 if __name__ == "__main__":
-    app.run(debug=True, port=5000)
+    # 生产环境配置
+    app.run(host='0.0.0.0', port=5000, debug=False)

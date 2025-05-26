@@ -14,9 +14,6 @@ import json
 import openai  # 新增导入
 import webbrowser
 
-# 设置 Graphviz 可执行文件路径
-graphviz.backend.dot_command.DOT_BINARY = r"C:\Program Files\Graphviz\bin\dot.exe"
-
 # 设置 OpenAI API 配置
 api_key = "c66bc18de21811217e5efa97085dae33b0028ef845e72301a054c9850221a3b0"
 api_base = "https://api.together.xyz/v1/"
