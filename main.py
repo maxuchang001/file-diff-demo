@@ -246,42 +246,5 @@ def compare_directories():
         return jsonify({"error": str(e)}), 500
 
 
-@app.route("/api/compare_file", methods=["POST"])
-def compare_file():
-    try:
-        data = request.get_json()
-        file1_path = data.get("file1_path")
-        file2_path = data.get("file2_path")
-        file1_name = data.get("file1_name")
-        file2_name = data.get("file2_name")
-        ext = data.get("ext")
-
-        if not all([file1_path, file2_path, file1_name, file2_name, ext]):
-            return jsonify({"error": "Missing required parameters"}), 400
-
-        # 检查文件是否存在
-        if not os.path.exists(file1_path) or not os.path.exists(file2_path):
-            return jsonify({"error": "File not found"}), 404
-
-        # 根据文件类型选择不同的处理方式
-        if ext == ".txt":
-            # 对于文本文件，使用新的比较方式
-            status, html_path = convert_to_html(file1_path, file2_path)
-            if status != "ok":
-                return jsonify({"error": html_path}), 500
-            return jsonify({"status": "ok", "diff_url": html_path})
-        else:
-            # 对于其他类型文件，使用原有的比较方式
-            status, diff_url, _ = diffControl(
-                file1_path, file2_path, file1_name, file2_name, ext
-            )
-            if status != "ok":
-                return jsonify({"error": diff_url}), 500
-            return jsonify({"status": "ok", "diff_url": diff_url})
-
-    except Exception as e:
-        return jsonify({"error": str(e)}), 500
-
-
 if __name__ == "__main__":
     app.run(debug=True, port=5000)
