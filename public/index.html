@@ -1043,13 +1043,7 @@
 
         // 添加页面卸载时的清理代码
         window.addEventListener('beforeunload', async function() {
-            try {
-                await fetch('/api/cleanup', {
-                    method: 'POST'
-                });
-            } catch (error) {
-                console.error('Cleanup failed:', error);
-            }
+            // 移除对 cleanup 接口的调用
         });
 
         async function compareDirectories() {
@@ -1556,11 +1550,6 @@
 
             // 清空临时目录
             if (window.tempDirs) {
-                fetch('/api/cleanup', {
-                    method: 'POST'
-                }).catch(error => {
-                    console.error('Cleanup failed:', error);
-                });
                 window.tempDirs = null;
             }
 
