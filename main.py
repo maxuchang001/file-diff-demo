@@ -10,6 +10,8 @@ import uuid
 import hashlib
 import filecmp
 import json
+from concurrent.futures import ThreadPoolExecutor, as_completed
+from typing import Dict, Tuple, List
 
 # 创建静态文件目录
 static_dir = os.path.join(os.path.dirname(__file__), "static")
@@ -38,6 +40,25 @@ def index():
 def serve_static(path):
     return send_from_directory("public", path)
 
+
+def process_different_file(file_path: str, temp_dir1: str, temp_dir2: str) -> Tuple[str, str]:
+    """处理不同的文件，生成差异报告"""
+    file1_path = os.path.join(temp_dir1, file_path)
+    file2_path = os.path.join(temp_dir2, file_path)
+    status, diff_content, _ = generate_diff_report(file1_path, file2_path)
+    return file_path, diff_content if status == "ok" else None
+
+def process_identical_file(file_path: str, temp_dir1: str, temp_dir2: str) -> Tuple[str, str]:
+    """处理相同的文件，生成HTML内容"""
+    file1_path = os.path.join(temp_dir1, file_path)
+    status, html_content = convert_to_html(file1_path)
+    return file_path, html_content if status == "ok" else None
+
+def process_single_file(file_path: str, temp_dir: str) -> Tuple[str, str]:
+    """处理单个文件，生成HTML内容"""
+    file_path_full = os.path.join(temp_dir, file_path)
+    status, html_content = convert_to_html(file_path_full)
+    return file_path, html_content if status == "ok" else None
 
 @app.route("/api/compare", methods=["POST"])
 def compare_directories():
@@ -137,49 +158,58 @@ def compare_directories():
             comparator = DirectoryComparator(temp_dir1, temp_dir2)
             results = comparator.compare()
 
-            # 生成差异报告
+            # 初始化结果字典
             diff_reports = {}
             dir1_contents = {}
             dir2_contents = {}
 
-            # 处理不同的文件
-            for file_path in results["different"]:
-                file1_path = os.path.join(temp_dir1, file_path)
-                file2_path = os.path.join(temp_dir2, file_path)
+            # 使用线程池并行处理文件
+            with ThreadPoolExecutor(max_workers=min(32, os.cpu_count() * 4)) as executor:
+                # 处理不同的文件
+                diff_futures = {
+                    executor.submit(process_different_file, file_path, temp_dir1, temp_dir2): file_path
+                    for file_path in results["different"]
+                }
 
-                status, diff_content, _ = generate_diff_report(file1_path, file2_path)
+                # 处理相同的文件
+                identical_futures = {
+                    executor.submit(process_identical_file, file_path, temp_dir1, temp_dir2): file_path
+                    for file_path in results["identical"]
+                }
 
-                if status == "ok" and diff_content:
-                    diff_reports[file_path] = diff_content
-                else:
-                    print(f"警告: 生成差异报告失败 - {diff_content}")
+                # 处理只在dir1中的文件
+                dir1_futures = {
+                    executor.submit(process_single_file, file_path, temp_dir1): file_path
+                    for file_path in results["only_in_dir1"]
+                }
 
-            # 处理相同的文件
-            for file_path in results["identical"]:
-                file1_path = os.path.join(temp_dir1, file_path)
-                file2_path = os.path.join(temp_dir2, file_path)
+                # 处理只在dir2中的文件
+                dir2_futures = {
+                    executor.submit(process_single_file, file_path, temp_dir2): file_path
+                    for file_path in results["only_in_dir2"]
+                }
 
-                status, html_content = convert_to_html(file1_path)
-                print(f"生成相同文件的单文件{file1_path}")
-                if status == "ok":
-                    dir1_contents[file_path] = {"html_content": html_content}
-                    dir2_contents[file_path] = {"html_content": html_content}
+                # 收集所有结果
+                for future in as_completed(diff_futures):
+                    file_path, diff_content = future.result()
+                    if diff_content:
+                        diff_reports[file_path] = diff_content
 
-            # 处理只在dir1中的文件
-            for file_path in results["only_in_dir1"]:
-                file1_path = os.path.join(temp_dir1, file_path)
-                print(f"生成只在dir1的单文件{file1_path}")
-                status, html_content = convert_to_html(file1_path)
-                if status == "ok":
-                    dir1_contents[file_path] = {"html_content": html_content}
+                for future in as_completed(identical_futures):
+                    file_path, html_content = future.result()
+                    if html_content:
+                        dir1_contents[file_path] = {"html_content": html_content}
+                        dir2_contents[file_path] = {"html_content": html_content}
 
-            # 处理只在dir2中的文件
-            for file_path in results["only_in_dir2"]:
-                file2_path = os.path.join(temp_dir2, file_path)
-                print(f"生成只在dir2的单文件{file2_path}")
-                status, html_content = convert_to_html(file2_path)
-                if status == "ok":
-                    dir2_contents[file_path] = {"html_content": html_content}
+                for future in as_completed(dir1_futures):
+                    file_path, html_content = future.result()
+                    if html_content:
+                        dir1_contents[file_path] = {"html_content": html_content}
+
+                for future in as_completed(dir2_futures):
+                    file_path, html_content = future.result()
+                    if html_content:
+                        dir2_contents[file_path] = {"html_content": html_content}
 
             # 计算统计信息
             stats = {
