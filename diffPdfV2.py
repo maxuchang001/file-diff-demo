@@ -155,6 +155,7 @@ def diff_pdfs_side_by_side(pdf1_path, pdf2_path, file1_name, file2_name, output_
 
     html_path = os.path.join(output_dir, "diff_report.html")
     html_summarize = generate_html_report(combined_image_data_list, html_path)
+    html_summarize = ""
     print(f"📄 HTML 报告生成完成: {html_path}")
     return html_path, html_summarize
 

@@ -65,14 +65,20 @@ def compare_directories():
             # 检查文件是否相同
             identical = filecmp.cmp(file1_path, file2_path, shallow=False)
 
-            # 生成文件查看报告
-            status, html_content = convert_to_html(file1_path)
-            if status != "ok":
-                return jsonify({"error": html_content}), 500
-
-            # 只在文件不同时生成差异报告
+            # 初始化变量
             diff_content = None
-            if not identical:
+            html_content = None
+
+            if identical:
+                # 如果文件相同，只生成一份文件查看报告
+                status, html_content = convert_to_html(file1_path)
+                if status != "ok":
+                    # 清理临时目录
+                    shutil.rmtree(temp_dir1)
+                    shutil.rmtree(temp_dir2)
+                    return jsonify({"error": html_content}), 500
+            else:
+                # 如果文件不同，生成差异报告
                 status, diff_content, _ = generate_diff_report(file1_path, file2_path)
                 if status != "ok":
                     # 清理临时目录
@@ -148,21 +154,13 @@ def compare_directories():
                 else:
                     print(f"警告: 生成差异报告失败 - {diff_content}")
 
-                # 生成文件内容
-                status, html_content = convert_to_html(file1_path)
-                if status == "ok":
-                    dir1_contents[file_path] = {"html_content": html_content}
-
-                status, html_content = convert_to_html(file2_path)
-                if status == "ok":
-                    dir2_contents[file_path] = {"html_content": html_content}
-
             # 处理相同的文件
             for file_path in results["identical"]:
                 file1_path = os.path.join(temp_dir1, file_path)
                 file2_path = os.path.join(temp_dir2, file_path)
 
                 status, html_content = convert_to_html(file1_path)
+                print(f"生成相同文件的单文件{file1_path}")
                 if status == "ok":
                     dir1_contents[file_path] = {"html_content": html_content}
                     dir2_contents[file_path] = {"html_content": html_content}
@@ -170,6 +168,7 @@ def compare_directories():
             # 处理只在dir1中的文件
             for file_path in results["only_in_dir1"]:
                 file1_path = os.path.join(temp_dir1, file_path)
+                print(f"生成只在dir1的单文件{file1_path}")
                 status, html_content = convert_to_html(file1_path)
                 if status == "ok":
                     dir1_contents[file_path] = {"html_content": html_content}
@@ -177,6 +176,7 @@ def compare_directories():
             # 处理只在dir2中的文件
             for file_path in results["only_in_dir2"]:
                 file2_path = os.path.join(temp_dir2, file_path)
+                print(f"生成只在dir2的单文件{file2_path}")
                 status, html_content = convert_to_html(file2_path)
                 if status == "ok":
                     dir2_contents[file_path] = {"html_content": html_content}

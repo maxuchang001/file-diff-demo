@@ -1185,11 +1185,11 @@ class IPXACTVisualizer:
 
             html_content += "</div></body></html>"
 
-            return 'ok', html_content, None
+            return "ok", html_content, None
 
         except Exception as e:
             print(f"生成IPXACT比较报告时出错: {str(e)}")
-            return 'no', str(e), None
+            return "no", str(e), None
 
     def generate_component_instances_diagram(self, output_img="component_instances"):
         """生成组件实例图"""
@@ -2760,7 +2760,7 @@ class IPXACTVisualizer:
             with open(output_file, "w", encoding="utf-8") as f:
                 f.write(html_content)
 
-            print(f"IPXACT报告已生成: {output_file}")
+            print(f"IPXACT报告{file_path}已生成: {output_file}")
             return "ok", output_file
 
         except Exception as e:
