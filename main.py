@@ -4,7 +4,7 @@ import os
 import tempfile
 import shutil
 from dir_compare import DirectoryComparator
-from control import diffControl
+from control import generate_diff_report
 from file2html import convert_to_html
 import uuid
 import hashlib
@@ -65,9 +65,6 @@ def compare_directories():
             # 检查文件是否相同
             identical = filecmp.cmp(file1_path, file2_path, shallow=False)
 
-            # 获取文件扩展名
-            ext = os.path.splitext(file1_name)[1].lower()
-
             # 生成文件查看报告
             status, html_content = convert_to_html(file1_path)
             if status != "ok":
@@ -76,9 +73,7 @@ def compare_directories():
             # 只在文件不同时生成差异报告
             diff_content = None
             if not identical:
-                status, diff_content, _ = diffControl(
-                    file1_path, file2_path, file1_name, file2_name, ext
-                )
+                status, diff_content, _ = generate_diff_report(file1_path, file2_path)
                 if status != "ok":
                     # 清理临时目录
                     shutil.rmtree(temp_dir1)
@@ -145,13 +140,8 @@ def compare_directories():
             for file_path in results["different"]:
                 file1_path = os.path.join(temp_dir1, file_path)
                 file2_path = os.path.join(temp_dir2, file_path)
-                file1_name = os.path.basename(file_path)
-                file2_name = os.path.basename(file_path)
-                ext = os.path.splitext(file_path)[1].lower()
 
-                status, diff_content, _ = diffControl(
-                    file1_path, file2_path, file1_name, file2_name, ext
-                )
+                status, diff_content, _ = generate_diff_report(file1_path, file2_path)
 
                 if status == "ok" and diff_content:
                     diff_reports[file_path] = diff_content

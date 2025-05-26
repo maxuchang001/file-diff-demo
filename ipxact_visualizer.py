@@ -704,7 +704,7 @@ class IPXACTVisualizer:
             print(f"Error generating memory map diff diagram: {e}")
             return None
 
-    def generate_ipxact_diff_html(self, file1, file2, output_file):
+    def generate_ipxact_diff_html(self, file1, file2):
         """生成IPXACT差异比较的HTML报告"""
         try:
             # 解析两个XML文件
@@ -716,10 +716,6 @@ class IPXACTVisualizer:
             # 提取元素
             elements1 = self.extract_ipxact_elements(root1)
             elements2 = self.extract_ipxact_elements(root2)
-
-            # 确保输出目录存在
-            output_dir = os.path.dirname(output_file)
-            os.makedirs(output_dir, exist_ok=True)
 
             # 创建可视化器实例
             visualizer1 = IPXACTVisualizer(file1)
@@ -1189,16 +1185,11 @@ class IPXACTVisualizer:
 
             html_content += "</div></body></html>"
 
-            # 写入HTML文件
-            with open(output_file, "w", encoding="utf-8") as f:
-                f.write(html_content)
-
-            print(f"IPXACT比较报告已生成: {output_file}")
-            return True
+            return 'ok', html_content, None
 
         except Exception as e:
             print(f"生成IPXACT比较报告时出错: {str(e)}")
-            return False
+            return 'no', str(e), None
 
     def generate_component_instances_diagram(self, output_img="component_instances"):
         """生成组件实例图"""

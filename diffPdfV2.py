@@ -158,8 +158,25 @@ def diff_pdfs_side_by_side(pdf1_path, pdf2_path, file1_name, file2_name, output_
     print(f"📄 HTML 报告生成完成: {html_path}")
     return html_path, html_summarize
 
-def create_diff_report(pdf1, pdf2, file1_name, file2_name):
+def create_diff_report(pdf1, pdf2):
+    """
+    创建PDF文件的差异报告
+    
+    Args:
+        pdf1: 第一个PDF文件的路径
+        pdf2: 第二个PDF文件的路径
+        
+    Returns:
+        tuple: (status, result, summary)
+            - status: 'ok' 表示成功，'no' 表示失败
+            - result: 成功时返回HTML内容，失败时返回错误信息
+            - summary: 差异摘要
+    """
     try:
+        # 获取文件名
+        file1_name = os.path.basename(pdf1)
+        file2_name = os.path.basename(pdf2)
+        
         # 使用 static/diffs 目录
         static_dir = os.path.join(os.path.dirname(__file__), 'static', 'diffs')
         os.makedirs(static_dir, exist_ok=True)
@@ -171,8 +188,11 @@ def create_diff_report(pdf1, pdf2, file1_name, file2_name):
         # 生成差异报告
         html_path, html_summarize = diff_pdfs_side_by_side(pdf1, pdf2, file1_name, file2_name, output_dir)
         
-        # 返回相对于 static 目录的路径
-        return 'ok', f'/static/diffs/{os.path.basename(output_dir)}/diff_report.html', html_summarize
+        # 读取生成的HTML内容
+        with open(html_path, 'r', encoding='utf-8') as f:
+            html_content = f.read()
+            
+        return 'ok', html_content, html_summarize
     except Exception as e:
         print(f"Error in create_diff_report: {str(e)}")
-        return 'no', str(e),""
+        return 'no', str(e), ""
