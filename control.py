@@ -1,23 +1,12 @@
 import os
-import shutil
-import tempfile
-from flask import Flask, request, jsonify, send_from_directory
-from flask_cors import CORS
 import xml.etree.ElementTree as ET
-from dir_compare import DirectoryComparator
 import text_diff
 import diffPdfV2
 from datetime import datetime
 from ipxact_visualizer import IPXACTVisualizer
-from file2html import convert_to_html
 
 def diffControl(file1, file2, file1_name, file2_name, ext):
     try:
-        print(f"\n=== 开始处理文件比较 ===")
-        print(f"文件1: {file1_name} ({file1})")
-        print(f"文件2: {file2_name} ({file2})")
-        print(f"文件类型: {ext}")
-        
         # 获取文件扩展名
         ext = ext.lower()
         

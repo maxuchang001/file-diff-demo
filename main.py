@@ -80,6 +80,9 @@ def compare_directories():
                     file1_path, file2_path, file1_name, file2_name, ext
                 )
                 if status != "ok":
+                    # 清理临时目录
+                    shutil.rmtree(temp_dir1)
+                    shutil.rmtree(temp_dir2)
                     return jsonify({"error": diff_content}), 500
 
             # 清理临时目录
@@ -140,30 +143,18 @@ def compare_directories():
 
             # 处理不同的文件
             for file_path in results["different"]:
-                print(f"\n=== 处理不同文件: {file_path} ===")
                 file1_path = os.path.join(temp_dir1, file_path)
                 file2_path = os.path.join(temp_dir2, file_path)
                 file1_name = os.path.basename(file_path)
                 file2_name = os.path.basename(file_path)
                 ext = os.path.splitext(file_path)[1].lower()
 
-                print(f"文件1路径: {file1_path}")
-                print(f"文件2路径: {file2_path}")
-                print(f"文件类型: {ext}")
-
                 status, diff_content, _ = diffControl(
                     file1_path, file2_path, file1_name, file2_name, ext
                 )
-                print(f"差异比较结果 - 状态: {status}")
-                print(
-                    f"差异比较结果 - 内容长度: {len(diff_content) if diff_content else 0}"
-                )
-                print(f"差异比较结果 - 内容类型: {type(diff_content)}")
 
                 if status == "ok" and diff_content:
                     diff_reports[file_path] = diff_content
-                    print(f"成功添加差异报告到diff_reports")
-                    print(f"当前diff_reports中的文件: {list(diff_reports.keys())}")
                 else:
                     print(f"警告: 生成差异报告失败 - {diff_content}")
 
@@ -171,12 +162,10 @@ def compare_directories():
                 status, html_content = convert_to_html(file1_path)
                 if status == "ok":
                     dir1_contents[file_path] = {"html_content": html_content}
-                    print(f"成功生成文件1的HTML内容")
 
                 status, html_content = convert_to_html(file2_path)
                 if status == "ok":
                     dir2_contents[file_path] = {"html_content": html_content}
-                    print(f"成功生成文件2的HTML内容")
 
             # 处理相同的文件
             for file_path in results["identical"]:
