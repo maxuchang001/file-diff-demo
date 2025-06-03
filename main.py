@@ -274,4 +274,4 @@ def compare_directories():
 
 if __name__ == "__main__":
     # 生产环境配置
-    app.run(host='0.0.0.0', port=9090)
+    app.run(host='0.0.0.0', port=9091)
