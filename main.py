@@ -67,7 +67,7 @@ def process_single_file(file_path: str, temp_dir: str) -> Tuple[str, str]:
     return file_path, html_content if status == "ok" else None
 
 
-@app.route("/api/compare", methods=["POST"])
+@app.route("/spec-diff/compare", methods=["POST"])
 def compare_directories():
     try:
         # 检查是否是单文件比对
@@ -274,4 +274,4 @@ def compare_directories():
 
 if __name__ == "__main__":
     # 生产环境配置
-    app.run(host='0.0.0.0', port=5000, debug=False)
+    app.run(host='0.0.0.0', port=9090)
